@@ -1,5 +1,5 @@
 import Expression from "./Expression.js";
-import AstVisitor from "./AstVisitor.js";
+import AstVisitor from "../AstVisitor.js";
 import Variable from "./Variable.js";
 import Block from "./Block.js";
 

@@ -1,5 +1,5 @@
 import AstNode from "./AstNode";
-import AstVisitor from "./AstVisitor";
+import AstVisitor from "../AstVisitor";
 
 export default class BreakStatement extends AstNode {
   constructor() {

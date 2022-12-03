@@ -1,4 +1,4 @@
-import AstNode from "./AstNode";
+import AstNode from "./ast/AstNode";
 
 export default class CodeGeneration {
   generateCode(parseTree: AstNode) {

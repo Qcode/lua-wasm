@@ -1,11 +1,7 @@
-// Accumulates all the strings stored for the data segment
-// As well as uses of non local variables, since the global table
-// _G is indexed by strings
-
-import Assignment from "./ast/Assignment";
-import AstVisitor from "./AstVisitor";
-import BinaryOp from "./ast/BinaryOp";
+import AstVisitor from "./AstVisitor.js";
 import Block from "./ast/Block";
+import Assignment from "./ast/Assignment";
+import BinaryOp from "./ast/BinaryOp";
 import BreakStatement from "./ast/BreakStatement";
 import ContinueStatement from "./ast/ContinueStatement";
 import Expression from "./ast/Expression";
@@ -16,21 +12,27 @@ import ReturnStatement from "./ast/ReturnStatement";
 import StringNode from "./ast/StringNode";
 import Variable from "./ast/Variable";
 
-export default class StringVisitor extends AstVisitor {
-  stringList = [];
+export default class BlockVariableDeclVisitor extends AstVisitor {
+  currentBlock: Block;
   constructor() {
     super();
   }
-  visitAssignment(a: Assignment) {}
+  visitBlock(b: Block) {
+    this.currentBlock = b;
+  }
+  visitAssignment(a: Assignment) {
+    if (a.local) {
+      a.variables.forEach((v) => this.currentBlock.myLocalDeclarations.push(v));
+    }
+  }
   visitBinaryOp(b: BinaryOp) {}
-  visitBlock(b: Block) {}
-  visitExpression(e: Expression) {}
-  visitFuncCall(f: FuncCall) {}
-  visitNumberNode(n: NumberNode) {}
-  visitStringNode(s: StringNode) {}
-  visitVariable(v: Variable) {}
-  visitFunction(v: Function) {}
-  visitReturnStatement(v: ReturnStatement) {}
   visitBreakStatement(v: BreakStatement) {}
   visitContinueStatement(v: ContinueStatement) {}
+  visitExpression(e: Expression) {}
+  visitFuncCall(f: FuncCall) {}
+  visitFunction(v: Function) {}
+  visitNumberNode(n: NumberNode) {}
+  visitReturnStatement(v: ReturnStatement) {}
+  visitStringNode(s: StringNode) {}
+  visitVariable(v: Variable) {}
 }

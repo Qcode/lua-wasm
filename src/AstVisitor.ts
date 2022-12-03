@@ -1,15 +1,15 @@
-import Assignment from "./Assignment";
-import BinaryOp from "./BinaryOp";
-import Block from "./Block";
-import Expression from "./Expression";
-import FuncCall from "./FuncCall";
-import NumberNode from "./NumberNode";
-import StringNode from "./StringNode";
-import Variable from "./Variable";
-import Function from "./Function";
-import ReturnStatement from "./ReturnStatement";
-import BreakStatement from "./BreakStatement";
-import ContinueStatement from "./ContinueStatement";
+import Assignment from "./ast/Assignment";
+import BinaryOp from "./ast/BinaryOp";
+import Block from "./ast/Block";
+import Expression from "./ast/Expression";
+import FuncCall from "./ast/FuncCall";
+import NumberNode from "./ast/NumberNode";
+import StringNode from "./ast/StringNode";
+import Variable from "./ast/Variable";
+import Function from "./ast/Function";
+import ReturnStatement from "./ast/ReturnStatement";
+import BreakStatement from "./ast/BreakStatement";
+import ContinueStatement from "./ast/ContinueStatement";
 
 export default abstract class AstVisitor {
   abstract visitAssignment(a: Assignment);

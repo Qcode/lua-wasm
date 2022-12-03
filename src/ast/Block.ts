@@ -1,12 +1,15 @@
 import AstNode from "./AstNode.js";
-import AstVisitor from "./AstVisitor.js";
+import AstVisitor from "../AstVisitor.js";
 import ReturnStatement from "./ReturnStatement.js";
 import BreakStatement from "./BreakStatement.js";
 import ContinueStatement from "./ContinueStatement.js";
+import Variable from "./Variable.js";
 
 class Block extends AstNode {
   statements: AstNode[];
   finalStatement?: ReturnStatement | BreakStatement | ContinueStatement;
+
+  myLocalDeclarations: Variable[];
   constructor(
     statements: AstNode[],
     finalStatement?: ReturnStatement | BreakStatement | ContinueStatement
@@ -14,6 +17,7 @@ class Block extends AstNode {
     super();
     this.statements = statements;
     this.finalStatement = finalStatement;
+    this.myLocalDeclarations = [];
   }
   accept(v: AstVisitor) {
     v.visitBlock(this);

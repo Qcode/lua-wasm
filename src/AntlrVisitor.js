@@ -1,9 +1,9 @@
 import LuaParser from "./antlr/LuaParser.js";
-import Block from "./Block.js";
+import Block from "./ast/Block.js";
 import Variable from "./Variable.js";
-import Assignment from "./Assignment.js";
+import Assignment from "./ast/Assignment.js";
 import NumberNode from "./NumberNode.js";
-import BinaryOp from "./BinaryOp.js";
+import BinaryOp from "./ast/BinaryOp.js";
 import StringNode from "./StringNode.js";
 import FuncCall from "./FuncCall.js";
 import Function from "./Function.js";
@@ -114,7 +114,8 @@ export default class AntlrVisitor {
       // Handle functions in tables later
       return new Assignment(
         [new Variable(ctx.funcname().getText())],
-        [ctx.getChild(2).accept(this)]
+        [ctx.getChild(2).accept(this)],
+        false
       );
     }
 

@@ -1,5 +1,5 @@
 import AstNode from "./AstNode.js";
-import AstVisitor from "./AstVisitor.js";
+import AstVisitor from "../AstVisitor.js";
 
 class Variable extends AstNode {
   // Lua supports mutliple assignment at once, so this is built in by default

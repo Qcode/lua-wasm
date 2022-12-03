@@ -1,4 +1,4 @@
-import AstVisitor from "./AstVisitor.js";
+import AstVisitor from "../AstVisitor.js";
 import Expression from "./Expression.js";
 
 enum Operators {
