@@ -4,7 +4,8 @@
   },
   "type": "module",
   "scripts": {
-    "start": "node src/main.js"
+    "start": "node src/main.js",
+    "antlr": "antlr src/antlr/Lua.g4  -Dlanguage=JavaScript"
   },
   "devDependencies": {
     "@types/antlr4": "^4.11.1"

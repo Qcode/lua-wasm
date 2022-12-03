@@ -6,12 +6,13 @@ import NumberNode from "./NumberNode.js";
 import BinaryOp from "./BinaryOp.js";
 import StringNode from "./StringNode.js";
 import FuncCall from "./FuncCall.js";
+import Function from "./Function.js";
+import ReturnStatement from "./ReturnStatement.js";
 
 // Transforms the tree from just being an ANTLR parse tree into an AST
 // defined by my own classes which is easier to manipulate
 export default class AntlrVisitor {
   visitChildren(ctx) {
-    console.log("hello");
     if (!ctx) {
       return;
     }
@@ -28,8 +29,18 @@ export default class AntlrVisitor {
       return ctx.getChild(0).accept(this);
     }
 
+    if (ctx instanceof LuaParser.ReturnStatContext) {
+      return new ReturnStatement(
+        ctx.explist() ? ctx.explist().accept(this) : []
+      );
+    }
+
     if (ctx instanceof LuaParser.BlockContext) {
-      return new Block(ctx.children.map((child) => child.accept(this)));
+      const lastStmt = ctx.laststat() ? ctx.laststat().accept(this) : null;
+      const bodyStmts = (
+        ctx.laststat() ? ctx.children.slice(0, -1) : ctx.children
+      ).map((child) => child.accept(this));
+      return new Block(bodyStmts, lastStmt);
     }
 
     if (ctx instanceof LuaParser.VarContext) {
@@ -80,6 +91,30 @@ export default class AntlrVisitor {
       return new FuncCall(
         functionCallNode.varOrExp().accept(this),
         args.accept(this)
+      );
+    }
+
+    if (ctx instanceof LuaParser.ParlistContext) {
+      return ctx.namelist().accept(this);
+    }
+
+    if (ctx instanceof LuaParser.FuncbodyContext) {
+      const parameters =
+        ctx.getChild(1) instanceof LuaParser.ParlistContext
+          ? ctx.parlist().accept(this)
+          : [];
+      return new Function(parameters, ctx.block().accept(this));
+    }
+
+    if (ctx instanceof LuaParser.ExpFuncDefContext) {
+      return ctx.functiondef().funcbody().accept(this);
+    }
+
+    if (ctx instanceof LuaParser.StatFuncDeclarationContext) {
+      // Handle functions in tables later
+      return new Assignment(
+        [new Variable(ctx.funcname().getText())],
+        [ctx.getChild(2).accept(this)]
       );
     }
 

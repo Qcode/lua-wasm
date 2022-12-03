@@ -547,6 +547,7 @@ export default class LuaParser extends antlr4.Parser {
 	        this._errHandler.sync(this);
 	        switch(this._input.LA(1)) {
 	        case 19:
+	            localctx = new ReturnStatContext(this, localctx);
 	            this.enterOuterAlt(localctx, 1);
 	            this.state = 165;
 	            this.match(LuaParser.T__18);
@@ -560,11 +561,13 @@ export default class LuaParser extends antlr4.Parser {
 
 	            break;
 	        case 3:
+	            localctx = new BreakStatContext(this, localctx);
 	            this.enterOuterAlt(localctx, 2);
 	            this.state = 169;
 	            this.match(LuaParser.T__2);
 	            break;
 	        case 20:
+	            localctx = new ContinueStatContext(this, localctx);
 	            this.enterOuterAlt(localctx, 3);
 	            this.state = 170;
 	            this.match(LuaParser.T__19);
@@ -2625,26 +2628,92 @@ class LaststatContext extends antlr4.ParserRuleContext {
         this.ruleIndex = LuaParser.RULE_laststat;
     }
 
+
+	 
+		copyFrom(ctx) {
+			super.copyFrom(ctx);
+		}
+
+}
+
+
+class ReturnStatContext extends LaststatContext {
+
+    constructor(parser, ctx) {
+        super(parser);
+        super.copyFrom(ctx);
+    }
+
 	explist() {
 	    return this.getTypedRuleContext(ExplistContext,0);
 	};
 
 	enterRule(listener) {
 	    if(listener instanceof LuaListener ) {
-	        listener.enterLaststat(this);
+	        listener.enterReturnStat(this);
 		}
 	}
 
 	exitRule(listener) {
 	    if(listener instanceof LuaListener ) {
-	        listener.exitLaststat(this);
+	        listener.exitReturnStat(this);
 		}
 	}
 
 
 }
 
+LuaParser.ReturnStatContext = ReturnStatContext;
 
+class ContinueStatContext extends LaststatContext {
+
+    constructor(parser, ctx) {
+        super(parser);
+        super.copyFrom(ctx);
+    }
+
+
+	enterRule(listener) {
+	    if(listener instanceof LuaListener ) {
+	        listener.enterContinueStat(this);
+		}
+	}
+
+	exitRule(listener) {
+	    if(listener instanceof LuaListener ) {
+	        listener.exitContinueStat(this);
+		}
+	}
+
+
+}
+
+LuaParser.ContinueStatContext = ContinueStatContext;
+
+class BreakStatContext extends LaststatContext {
+
+    constructor(parser, ctx) {
+        super(parser);
+        super.copyFrom(ctx);
+    }
+
+
+	enterRule(listener) {
+	    if(listener instanceof LuaListener ) {
+	        listener.enterBreakStat(this);
+		}
+	}
+
+	exitRule(listener) {
+	    if(listener instanceof LuaListener ) {
+	        listener.exitBreakStat(this);
+		}
+	}
+
+
+}
+
+LuaParser.BreakStatContext = BreakStatContext;
 
 class LabelContext extends antlr4.ParserRuleContext {
 

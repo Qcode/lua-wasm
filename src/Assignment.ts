@@ -7,13 +7,11 @@ class Assignment extends AstNode {
   // Lua supports mutliple assignment at once, so this is built in by default
   variables: Variable[];
   values: Expression[];
-  local: boolean;
 
-  constructor(variables: Variable[], values: Expression[], local: boolean) {
+  constructor(variables: Variable[], values: Expression[]) {
     super();
     this.variables = variables;
     this.values = values;
-    this.local = local;
   }
 
   accept(v: AstVisitor) {

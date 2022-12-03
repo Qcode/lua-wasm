@@ -5,6 +5,7 @@ import LuaParser from "./antlr/LuaParser.js";
 import LuaListener from "./antlr/LuaListener.js";
 import TreeVisitor from "./AntlrVisitor.js";
 import Block from "./Block.js";
+import CodeGeneration from "./CodeGeneration.js";
 
 const input = fs
   .readFileSync(process.argv[2] ?? "testPrograms/test.lua")
@@ -78,7 +79,11 @@ class CodeGenerator extends LuaListener {
 }*/
 
 const treeVisitor = new TreeVisitor();
+// Construct my ast from the parse tree
+const ast = tree.accept(treeVisitor);
 console.log(JSON.stringify(tree.accept(treeVisitor), null, 2));
+const codeOutput = new CodeGeneration().generateCode(ast);
+console.log(codeOutput);
 
 /*const preprocessor = new PreProcessor();
 const listener = new CodeGenerator();

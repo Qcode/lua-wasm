@@ -93,7 +93,9 @@ stat
     ;
 
 laststat
-    : 'return' explist? | 'break' | 'continue' ';'?
+    : 'return' explist? # returnStat
+    | 'break' # breakStat
+    | 'continue' ';'? #continueStat
     ;
 
 label
