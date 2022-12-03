@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "target": "es6",
+        "outDir": "ts-built",
+        "rootDir": "src",
+        "sourceMap": true,
+        "mapRoot": "./src",
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
+        "allowJs": true
+    }
+}

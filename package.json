@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "antlr4": "^4.11.0"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "devDependencies": {
+    "@types/antlr4": "^4.11.1"
+  }
+}

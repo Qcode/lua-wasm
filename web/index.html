@@ -1,0 +1,47 @@
+<html>
+	<head>
+		<script>
+			function clearOutput() {
+				document.getElementById("output").innerHTML = "";
+			}
+
+			function runProgram() {
+				clearOutput();
+
+				const memory = new WebAssembly.Memory({ initial: 1 });
+
+				const wasmImports = {
+					imports: {
+						imported_func: (arg) => {
+							document.getElementById("output").innerHTML += `<p>${arg}</p>`;
+						},
+						printString: (offset, length) => {
+							const bytes = new Uint8Array(memory.buffer, offset, length);
+							const string = new TextDecoder("utf8").decode(bytes);
+							document.getElementById("output").innerHTML += `<p>${string}</p>`;
+						}
+					},
+					js: {mem: memory}
+				}
+
+				WebAssembly.instantiateStreaming(fetch("./simple.wasm"), wasmImports).then(
+					(obj) => obj.instance.exports.exported_func()
+				);
+			}
+		</script>
+	</head>
+	<body>
+		<h1>Lua WebAssembly</h1>
+		<p>
+			<button onclick="runProgram()">Run Program</button>
+		</p>
+		<p>
+			<button onclick="clearOutput()">Clear Output</button>
+		</p>
+
+		<p>Output:</p>
+		<div id="output">
+			Test
+		</div>
+	</body>
+</html>
