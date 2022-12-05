@@ -10,6 +10,13 @@ import Function from "./ast/Function";
 import ReturnStatement from "./ast/ReturnStatement";
 import BreakStatement from "./ast/BreakStatement";
 import ContinueStatement from "./ast/ContinueStatement";
+import IfStatement from "./ast/IfStatement";
+import BooleanNode from "./ast/BooleanNode";
+import NilNode from "./ast/NilNode";
+import UnaryOp from "./ast/UnaryOp";
+import WhileStatement from "./ast/WhileStatement";
+import Repeat from "./ast/Repeat";
+import NumericFor from "./ast/NumericFor";
 
 export default abstract class AstVisitor {
   abstract visitAssignment(a: Assignment);
@@ -29,4 +36,11 @@ export default abstract class AstVisitor {
   abstract visitReturnStatement(v: ReturnStatement);
   abstract visitBreakStatement(v: BreakStatement);
   abstract visitContinueStatement(v: ContinueStatement);
+  abstract visitIfStatement(v: IfStatement);
+  abstract visitBooleanNode(v: BooleanNode);
+  abstract visitNilNode(v: NilNode);
+  abstract visitUnaryOp(v: UnaryOp);
+  abstract visitWhileStatement(v: WhileStatement);
+  abstract visitRepeat(v: Repeat);
+  abstract visitNumericFor(v: NumericFor);
 }

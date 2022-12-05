@@ -15,6 +15,13 @@ import NumberNode from "./ast/NumberNode";
 import ReturnStatement from "./ast/ReturnStatement";
 import StringNode from "./ast/StringNode";
 import Variable from "./ast/Variable";
+import BooleanNode from "./ast/BooleanNode";
+import IfStatement from "./ast/IfStatement";
+import NilNode from "./ast/NilNode";
+import UnaryOp from "./ast/UnaryOp";
+import WhileStatement from "./ast/WhileStatement";
+import Repeat from "./ast/Repeat";
+import NumericFor from "./ast/NumericFor";
 
 export default class StringVisitor extends AstVisitor {
   stringList = [];
@@ -33,4 +40,11 @@ export default class StringVisitor extends AstVisitor {
   visitReturnStatement(v: ReturnStatement) {}
   visitBreakStatement(v: BreakStatement) {}
   visitContinueStatement(v: ContinueStatement) {}
+  visitBooleanNode(v: BooleanNode) {}
+  visitIfStatement(v: IfStatement) {}
+  visitNilNode(v: NilNode) {}
+  visitUnaryOp(v: UnaryOp) {}
+  visitWhileStatement(v: WhileStatement) {}
+  visitRepeat(v: Repeat) {}
+  visitNumericFor(v: NumericFor) {}
 }

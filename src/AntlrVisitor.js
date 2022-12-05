@@ -8,6 +8,13 @@ import StringNode from "./StringNode.js";
 import FuncCall from "./FuncCall.js";
 import Function from "./Function.js";
 import ReturnStatement from "./ReturnStatement.js";
+import IfStatement from "./ast/IfStatement.js";
+import BooleanNode from "./ast/BooleanNode.js";
+import NilNode from "./ast/NilNode.js";
+import UnaryOp from "./ast/UnaryOp.js";
+import WhileStatement from "./ast/WhileStatement.js";
+import Repeat from "./ast/Repeat.js";
+import NumericFor from "./ast/NumericFor.js";
 
 // Transforms the tree from just being an ANTLR parse tree into an AST
 // defined by my own classes which is easier to manipulate
@@ -15,6 +22,59 @@ export default class AntlrVisitor {
   visitChildren(ctx) {
     if (!ctx) {
       return;
+    }
+    if (ctx instanceof LuaParser.StatNumericForContext) {
+      return new NumericFor(
+        new Variable(ctx.getChild(1).getText()),
+        ctx.block().accept(this),
+        ctx.getChild(3).accept(this),
+        ctx.getChild(5).accept(this),
+        ctx.getChildCount() === 10 ? ctx.getChild(7).accept(this) : null
+      );
+    }
+
+    if (ctx instanceof LuaParser.StatRepeatContext) {
+      return new Repeat(ctx.exp().accept(this), ctx.block().accept(this));
+    }
+
+    if (ctx instanceof LuaParser.StatDoContext) {
+      return ctx.block().accept(this);
+    }
+
+    if (ctx instanceof LuaParser.StatWhileContext) {
+      return new WhileStatement(
+        ctx.exp().accept(this),
+        ctx.block().accept(this)
+      );
+    }
+
+    if (ctx instanceof LuaParser.ExpUnaryContext) {
+      return new UnaryOp(ctx.exp().accept(this), ctx.getChild(0).getText());
+    }
+
+    if (ctx instanceof LuaParser.StatIfContext) {
+      const conditions = [ctx.getChild(1).accept(this)];
+      const blocks = [ctx.getChild(3).accept(this)];
+      for (let x = 4; x < ctx.getChildCount(); x++) {
+        if (ctx.getChild(x).getText() === "elseif") {
+          conditions.push(ctx.getChild(x + 1).accept(this));
+          blocks.push(ctx.getChild(x + 3).accept(this));
+        } else if (ctx.getChild(x).getText() === "else") {
+          blocks.push(ctx.getChild(x + 1).accept(this));
+        }
+      }
+      return new IfStatement(conditions, blocks);
+    }
+
+    if (
+      ctx instanceof LuaParser.ExpTrueContext ||
+      ctx instanceof LuaParser.ExpFalseContext
+    ) {
+      return new BooleanNode(ctx.getText() === "true");
+    }
+
+    if (ctx instanceof LuaParser.ExpNilContext) {
+      return new NilNode();
     }
 
     if (ctx instanceof LuaParser.ExpNumberContext) {
@@ -84,13 +144,13 @@ export default class AntlrVisitor {
     }
 
     if (ctx instanceof LuaParser.FunccallContext) {
-      const functionCallNode = ctx.getChild(0);
+      const functionCallNode = ctx.functioncall();
       // TODO: Something like f returns another function, f()() - multiple args, need to nest FuncCall Objects
       // nameAndArgs => args => explist
-      const args = functionCallNode.getChild(1).getChild(0).getChild(1);
+      const myArgs = functionCallNode.nameAndArgs()[0].args();
       return new FuncCall(
         functionCallNode.varOrExp().accept(this),
-        args.accept(this)
+        myArgs.explist() ? myArgs.explist().accept(this) : []
       );
     }
 
@@ -156,5 +216,8 @@ export default class AntlrVisitor {
     }
 
     throw `${ctx.getText()} is not supported`;
+  }
+  visitTerminal(terminal) {
+    console.log(terminal.getText());
   }
 }

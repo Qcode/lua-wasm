@@ -11,6 +11,13 @@ import NumberNode from "./ast/NumberNode";
 import ReturnStatement from "./ast/ReturnStatement";
 import StringNode from "./ast/StringNode";
 import Variable from "./ast/Variable";
+import IfStatement from "./ast/IfStatement.js";
+import BooleanNode from "./ast/BooleanNode.js";
+import NilNode from "./ast/NilNode.js";
+import UnaryOp from "./ast/UnaryOp.js";
+import WhileStatement from "./ast/WhileStatement.js";
+import Repeat from "./ast/Repeat.js";
+import NumericFor from "./ast/NumericFor.js";
 
 export default class BlockVariableDeclVisitor extends AstVisitor {
   currentBlock: Block;
@@ -35,4 +42,11 @@ export default class BlockVariableDeclVisitor extends AstVisitor {
   visitReturnStatement(v: ReturnStatement) {}
   visitStringNode(s: StringNode) {}
   visitVariable(v: Variable) {}
+  visitIfStatement(v: IfStatement) {}
+  visitBooleanNode(v: BooleanNode) {}
+  visitNilNode(v: NilNode) {}
+  visitUnaryOp(v: UnaryOp) {}
+  visitWhileStatement(v: WhileStatement) {}
+  visitRepeat(v: Repeat) {}
+  visitNumericFor(v: NumericFor) {}
 }
