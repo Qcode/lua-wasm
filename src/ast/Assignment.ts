@@ -18,8 +18,8 @@ class Assignment extends AstNode {
 
   accept(v: AstVisitor) {
     v.visitAssignment(this);
-    this.variables.forEach((variable) => variable.accept(v));
     this.values.forEach((val) => val.accept(v));
+    this.variables.forEach((variable) => variable.accept(v));
   }
 }
 

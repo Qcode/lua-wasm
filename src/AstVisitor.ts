@@ -19,28 +19,28 @@ import Repeat from "./ast/Repeat";
 import NumericFor from "./ast/NumericFor";
 
 export default abstract class AstVisitor {
-  abstract visitAssignment(a: Assignment);
+  visitAssignment(a: Assignment) {}
 
-  abstract visitBinaryOp(b: BinaryOp);
+  visitBinaryOp(b: BinaryOp) {}
 
-  abstract visitBlock(b: Block);
-  abstract visitExpression(e: Expression);
+  visitBlock(b: Block) {}
+  visitExpression(e: Expression) {}
 
-  abstract visitFuncCall(f: FuncCall);
+  visitFuncCall(f: FuncCall) {}
 
-  abstract visitNumberNode(n: NumberNode);
-  abstract visitStringNode(s: StringNode);
-  abstract visitVariable(v: Variable);
+  visitNumberNode(n: NumberNode) {}
+  visitStringNode(s: StringNode) {}
+  visitVariable(v: Variable) {}
 
-  abstract visitFunction(v: Function);
-  abstract visitReturnStatement(v: ReturnStatement);
-  abstract visitBreakStatement(v: BreakStatement);
-  abstract visitContinueStatement(v: ContinueStatement);
-  abstract visitIfStatement(v: IfStatement);
-  abstract visitBooleanNode(v: BooleanNode);
-  abstract visitNilNode(v: NilNode);
-  abstract visitUnaryOp(v: UnaryOp);
-  abstract visitWhileStatement(v: WhileStatement);
-  abstract visitRepeat(v: Repeat);
-  abstract visitNumericFor(v: NumericFor);
+  visitFunction(v: Function) {}
+  visitReturnStatement(v: ReturnStatement) {}
+  visitBreakStatement(v: BreakStatement) {}
+  visitContinueStatement(v: ContinueStatement) {}
+  visitIfStatement(v: IfStatement) {}
+  visitBooleanNode(v: BooleanNode) {}
+  visitNilNode(v: NilNode) {}
+  visitUnaryOp(v: UnaryOp) {}
+  visitWhileStatement(v: WhileStatement) {}
+  visitRepeat(v: Repeat) {}
+  visitNumericFor(v: NumericFor) {}
 }

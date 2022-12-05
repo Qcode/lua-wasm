@@ -28,23 +28,4 @@ export default class StringVisitor extends AstVisitor {
   constructor() {
     super();
   }
-  visitAssignment(a: Assignment) {}
-  visitBinaryOp(b: BinaryOp) {}
-  visitBlock(b: Block) {}
-  visitExpression(e: Expression) {}
-  visitFuncCall(f: FuncCall) {}
-  visitNumberNode(n: NumberNode) {}
-  visitStringNode(s: StringNode) {}
-  visitVariable(v: Variable) {}
-  visitFunction(v: Function) {}
-  visitReturnStatement(v: ReturnStatement) {}
-  visitBreakStatement(v: BreakStatement) {}
-  visitContinueStatement(v: ContinueStatement) {}
-  visitBooleanNode(v: BooleanNode) {}
-  visitIfStatement(v: IfStatement) {}
-  visitNilNode(v: NilNode) {}
-  visitUnaryOp(v: UnaryOp) {}
-  visitWhileStatement(v: WhileStatement) {}
-  visitRepeat(v: Repeat) {}
-  visitNumericFor(v: NumericFor) {}
 }
