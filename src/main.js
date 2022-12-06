@@ -2,14 +2,14 @@ import * as fs from "fs";
 import antlr4 from "antlr4";
 import LuaLexer from "./antlr/LuaLexer.js";
 import LuaParser from "./antlr/LuaParser.js";
-import LuaListener from "./antlr/LuaListener.js";
 import TreeVisitor from "./AntlrVisitor.js";
 import Block from "./ast/Block.js";
 import CodeGeneration from "./CodeGeneration.js";
-import BlockVariableDeclVisitor from "./BlockVariableDeclVisitor.js";
+import Function from "./ast/Function.js";
+import ScopeVisitor from "./ScopeVisitor.js";
 
 const input = fs
-  .readFileSync(process.argv[2] ?? "testPrograms/test.lua")
+  .readFileSync(process.argv[2] ?? "testPrograms/closures.lua")
   .toString();
 const chars = new antlr4.InputStream(input);
 const lexer = new LuaLexer(chars);
@@ -81,10 +81,12 @@ class CodeGenerator extends LuaListener {
 
 const treeVisitor = new TreeVisitor();
 // Construct my ast from the parse tree
-const ast = tree.accept(treeVisitor);
-ast.accept(new BlockVariableDeclVisitor());
+const ast = new Function([], tree.accept(treeVisitor));
+//ast.accept(new BlockVariableDeclVisitor());
+ast.accept(new ScopeVisitor());
+console.log(ast.localVariables);
 
-console.log(JSON.stringify(ast, null, 2));
+//console.log(JSON.stringify(ast, null, 2));
 const codeOutput = new CodeGeneration().generateCode(ast);
 console.log(codeOutput);
 

@@ -17,13 +17,20 @@ import UnaryOp from "./ast/UnaryOp";
 import WhileStatement from "./ast/WhileStatement";
 import Repeat from "./ast/Repeat";
 import NumericFor from "./ast/NumericFor";
+import LocalAssignment from "./ast/LocalAssignment";
 
 export default abstract class AstVisitor {
   visitAssignment(a: Assignment) {}
+  leaveAssignment(a: Assignment) {}
+
+  visitLocalAssignment(a: LocalAssignment) {}
+  leaveLocalAssignment(a: LocalAssignment) {}
 
   visitBinaryOp(b: BinaryOp) {}
 
   visitBlock(b: Block) {}
+  leaveBlock(b: Block) {}
+
   visitExpression(e: Expression) {}
 
   visitFuncCall(f: FuncCall) {}
@@ -33,6 +40,8 @@ export default abstract class AstVisitor {
   visitVariable(v: Variable) {}
 
   visitFunction(v: Function) {}
+  leaveFunction(v: Function) {}
+
   visitReturnStatement(v: ReturnStatement) {}
   visitBreakStatement(v: BreakStatement) {}
   visitContinueStatement(v: ContinueStatement) {}

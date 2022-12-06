@@ -3,7 +3,7 @@ local var2 = false
 
 if (var1 and var2) then
     print("Var 1 and var 2")
-else if (var1 and not var2) then
+elseif (var1 and not var2) then
     print("Var 1 and not var 2")
 else
     print("Neither")

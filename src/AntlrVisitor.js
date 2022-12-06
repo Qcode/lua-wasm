@@ -1,13 +1,13 @@
 import LuaParser from "./antlr/LuaParser.js";
 import Block from "./ast/Block.js";
-import Variable from "./Variable.js";
+import Variable from "./ast/Variable.js";
 import Assignment from "./ast/Assignment.js";
-import NumberNode from "./NumberNode.js";
+import NumberNode from "./ast/NumberNode.js";
 import BinaryOp from "./ast/BinaryOp.js";
-import StringNode from "./StringNode.js";
-import FuncCall from "./FuncCall.js";
-import Function from "./Function.js";
-import ReturnStatement from "./ReturnStatement.js";
+import StringNode from "./ast/StringNode.js";
+import FuncCall from "./ast/FuncCall.js";
+import Function from "./ast/Function.js";
+import ReturnStatement from "./ast/ReturnStatement.js";
 import IfStatement from "./ast/IfStatement.js";
 import BooleanNode from "./ast/BooleanNode.js";
 import NilNode from "./ast/NilNode.js";
@@ -15,6 +15,7 @@ import UnaryOp from "./ast/UnaryOp.js";
 import WhileStatement from "./ast/WhileStatement.js";
 import Repeat from "./ast/Repeat.js";
 import NumericFor from "./ast/NumericFor.js";
+import LocalAssignment from "./ast/LocalAssignment.js";
 
 // Transforms the tree from just being an ANTLR parse tree into an AST
 // defined by my own classes which is easier to manipulate
@@ -110,7 +111,7 @@ export default class AntlrVisitor {
     if (ctx instanceof LuaParser.NamelistContext) {
       const results = [];
       for (let x = 0; x < ctx.getChildCount(); x += 2) {
-        results.push(new Variable(ctx.getChild(x).getText()));
+        results.push(ctx.getChild(x).getText());
       }
       return results;
     }
@@ -128,18 +129,16 @@ export default class AntlrVisitor {
     }
 
     if (ctx instanceof LuaParser.StatLocalAssignmentContext) {
-      return new Assignment(
+      return new LocalAssignment(
         ctx.getChild(1).accept(this),
-        ctx.getChildCount() >= 3 ? ctx.getChild(3).accept(this) : [],
-        true
+        ctx.getChildCount() >= 3 ? ctx.getChild(3).accept(this) : []
       );
     }
 
     if (ctx instanceof LuaParser.StatAssignmentContext) {
       return new Assignment(
         ctx.getChild(0).accept(this),
-        ctx.getChild(2).accept(this),
-        false
+        ctx.getChild(2).accept(this)
       );
     }
 
@@ -174,8 +173,14 @@ export default class AntlrVisitor {
       // Handle functions in tables later
       return new Assignment(
         [new Variable(ctx.funcname().getText())],
-        [ctx.getChild(2).accept(this)],
-        false
+        [ctx.getChild(2).accept(this)]
+      );
+    }
+
+    if (ctx instanceof LuaParser.StatLocalfuncDeclarationContext) {
+      return new LocalAssignment(
+        [ctx.NAME().getText()],
+        [ctx.funcbody().accept(this)]
       );
     }
 
