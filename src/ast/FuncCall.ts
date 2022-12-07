@@ -16,5 +16,6 @@ export default class FuncCall extends Expression {
     v.visitFuncCall(this);
     this.theFunc.accept(v);
     this.args.forEach((arg) => arg.accept(v));
+    v.leaveFuncCall(this);
   }
 }

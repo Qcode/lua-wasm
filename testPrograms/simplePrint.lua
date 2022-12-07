@@ -1,1 +1,5 @@
-print("Hello World")
+print(1 + 2 + 3 + 4)
+print(10 - 5 - 2)
+print(1000 - 5 * 5)
+print((10 / 5 + 6 / 3) * 10)
+print("Hello, World!")

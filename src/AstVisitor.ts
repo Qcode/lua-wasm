@@ -27,6 +27,7 @@ export default abstract class AstVisitor {
   leaveLocalAssignment(a: LocalAssignment) {}
 
   visitBinaryOp(b: BinaryOp) {}
+  leaveBinaryOp(b: BinaryOp) {}
 
   visitBlock(b: Block) {}
   leaveBlock(b: Block) {}
@@ -34,6 +35,7 @@ export default abstract class AstVisitor {
   visitExpression(e: Expression) {}
 
   visitFuncCall(f: FuncCall) {}
+  leaveFuncCall(f: FuncCall) {}
 
   visitNumberNode(n: NumberNode) {}
   visitStringNode(s: StringNode) {}

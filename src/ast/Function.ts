@@ -11,6 +11,9 @@ export default class Function extends Expression {
   localVariables: Map<Block, Map<string, Number>>;
   totalVars: number = 0;
 
+  // Where is the function stored inside our WASM table?
+  index: number = 0;
+
   constructor(parameters: string[], body: Block) {
     super();
     this.parameters = parameters;

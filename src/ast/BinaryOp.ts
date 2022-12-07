@@ -1,7 +1,7 @@
 import AstVisitor from "../AstVisitor.js";
 import Expression from "./Expression.js";
 
-enum Operators {
+export enum Operators {
   And = "and",
   Or = "or",
   Add = "+",
@@ -39,5 +39,8 @@ export default class BinaryOp extends Expression {
 
   accept(v: AstVisitor) {
     v.visitBinaryOp(this);
+    this.left.accept(v);
+    this.right.accept(v);
+    v.leaveBinaryOp(this);
   }
 }

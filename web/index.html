@@ -15,17 +15,21 @@
 						imported_func: (arg) => {
 							document.getElementById("output").innerHTML += `<p>${arg}</p>`;
 						},
-						printString: (offset, length) => {
-							const bytes = new Uint8Array(memory.buffer, offset, length);
+						printString: (location) => {
+							const size = memory.buffer[location];
+							const bytes = new Uint8Array(memory.buffer, location + 4, size);
 							const string = new TextDecoder("utf8").decode(bytes);
 							document.getElementById("output").innerHTML += `<p>${string}</p>`;
+						},
+						printNum: (num) => {
+							document.getElementById("output").innerHTML += `<p>${num}</p>`
 						}
 					},
 					js: {mem: memory}
 				}
 
-				WebAssembly.instantiateStreaming(fetch("./simple.wasm"), wasmImports).then(
-					(obj) => obj.instance.exports.exported_func()
+				WebAssembly.instantiateStreaming(fetch("./compiled.wasm"), wasmImports).then(
+					(obj) => obj.instance.exports.main()
 				);
 			}
 		</script>
