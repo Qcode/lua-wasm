@@ -4,7 +4,6 @@ import ReturnStatement from "./ReturnStatement.js";
 import BreakStatement from "./BreakStatement.js";
 import ContinueStatement from "./ContinueStatement.js";
 import Function from "./Function.js";
-import Variable from "./Variable.js";
 
 class Block extends AstNode {
   statements: AstNode[];

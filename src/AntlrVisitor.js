@@ -54,17 +54,24 @@ export default class AntlrVisitor {
     }
 
     if (ctx instanceof LuaParser.StatIfContext) {
-      const conditions = [ctx.getChild(1).accept(this)];
-      const blocks = [ctx.getChild(3).accept(this)];
+      const condition = ctx.getChild(1).accept(this);
+      const thenBlock = ctx.getChild(3).accept(this);
+      let currentIfStatement = new IfStatement(condition, thenBlock);
+      const headIfStatement = currentIfStatement;
+
       for (let x = 4; x < ctx.getChildCount(); x++) {
         if (ctx.getChild(x).getText() === "elseif") {
-          conditions.push(ctx.getChild(x + 1).accept(this));
-          blocks.push(ctx.getChild(x + 3).accept(this));
+          const newIfStatement = new IfStatement(
+            ctx.getChild(x + 1).accept(this),
+            ctx.getChild(x + 3).accept(this)
+          );
+          currentIfStatement.elseBlock = new Block([newIfStatement]);
+          currentIfStatement = newIfStatement;
         } else if (ctx.getChild(x).getText() === "else") {
-          blocks.push(ctx.getChild(x + 1).accept(this));
+          currentIfStatement.elseBlock = ctx.getChild(x + 1).accept(this);
         }
       }
-      return new IfStatement(conditions, blocks);
+      return headIfStatement;
     }
 
     if (

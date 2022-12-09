@@ -47,11 +47,20 @@ export default abstract class AstVisitor {
   visitReturnStatement(v: ReturnStatement) {}
   visitBreakStatement(v: BreakStatement) {}
   visitContinueStatement(v: ContinueStatement) {}
+
   visitIfStatement(v: IfStatement) {}
+  visitIfStatementPostCond(v: IfStatement) {}
+  visitIfStatementPostThen(v: IfStatement) {}
+  leaveIfStatement(v: IfStatement) {}
+
   visitBooleanNode(v: BooleanNode) {}
   visitNilNode(v: NilNode) {}
   visitUnaryOp(v: UnaryOp) {}
+
   visitWhileStatement(v: WhileStatement) {}
+  intermediateWhileStatement(v: WhileStatement) {}
+  leaveWhileStatement(v: WhileStatement) {}
+
   visitRepeat(v: Repeat) {}
   visitNumericFor(v: NumericFor) {}
 }

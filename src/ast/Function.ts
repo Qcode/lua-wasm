@@ -8,7 +8,7 @@ export default class Function extends Expression {
 
   nestingDepth: number = 0;
 
-  localVariables: Map<Block, Map<string, Number>>;
+  localVariables: Map<Block, Map<string, number>>;
   totalVars: number = 0;
 
   // Where is the function stored inside our WASM table?
@@ -44,5 +44,9 @@ export default class Function extends Expression {
       this.localVariables.get(block).set(variable, this.totalVars);
       this.totalVars += 1;
     }
+  }
+
+  getLocal(block: Block, variable: string) {
+    return this.localVariables.get(block).get(variable);
   }
 }

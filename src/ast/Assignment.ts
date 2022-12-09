@@ -11,13 +11,14 @@ class Assignment extends AstNode {
   constructor(variables: Variable[], values: Expression[]) {
     super();
     this.variables = variables;
+    this.variables.forEach((variable) => (variable.get = false));
     this.values = values;
   }
 
   accept(v: AstVisitor) {
     v.visitAssignment(this);
-    this.values.forEach((val) => val.accept(v));
     this.variables.forEach((variable) => variable.accept(v));
+    this.values.forEach((val) => val.accept(v));
     v.leaveAssignment(this);
   }
 }

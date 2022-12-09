@@ -1,9 +1,9 @@
-import AstNode from "./AstNode.js";
 import AstVisitor from "../AstVisitor.js";
 import Block from "./Block.js";
 import Function from "./Function.js";
+import Expression from "./Expression.js";
 
-class Variable extends AstNode {
+class Variable extends Expression {
   // Lua supports mutliple assignment at once, so this is built in by default
   varName: string;
   surroundingBlock: Block;
@@ -11,6 +11,12 @@ class Variable extends AstNode {
   declaredInFunction: Function;
 
   global: boolean = false;
+  // Describes whether it's used in an expression (get)
+  // or an assignment (set)
+  // For expression, push the value (8 bytes) onto the stack
+  // For assignment, push the memory location (4 bytes) of the variable
+  // onto the stack
+  get: boolean = true;
 
   constructor(varName: string) {
     super();

@@ -15,15 +15,36 @@
 						imported_func: (arg) => {
 							document.getElementById("output").innerHTML += `<p>${arg}</p>`;
 						},
-						printString: (location) => {
-							const size = memory.buffer[location];
-							const bytes = new Uint8Array(memory.buffer, location + 4, size);
-							const string = new TextDecoder("utf8").decode(bytes);
-							document.getElementById("output").innerHTML += `<p>${string}</p>`;
-						},
-						printNum: (num) => {
-							document.getElementById("output").innerHTML += `<p>${num}</p>`
-						}
+						print: (location => {
+							const append = (content) => {
+								document.getElementById("output").innerHTML += `<p>${content}</p>`
+							}
+
+							const dataview = (new DataView(memory.buffer))
+							// They give us location = stack pointer
+							const type = dataview.getInt32(location, true);
+							switch (type) {
+								case 0:
+									append("nil");
+									break;
+								case 1:
+									append(dataview.getInt32(location + 4, true));
+									break;
+
+								case 3:
+									const val = dataview.getInt32(location + 4, true);
+									append(val === 0 ? "false" : "true");
+									break;
+
+								case 4:
+									const stringLocation = dataview.getInt32(location + 4, true);
+									const size = dataview.getInt32(stringLocation, true);
+									const bytes = new Uint8Array(memory.buffer, stringLocation + 4, size);
+									const string = new TextDecoder("utf8").decode(bytes);
+									append(string);
+									break;
+							}
+						})
 					},
 					js: {mem: memory}
 				}
@@ -45,7 +66,6 @@
 
 		<p>Output:</p>
 		<div id="output">
-			Test
 		</div>
 	</body>
 </html>

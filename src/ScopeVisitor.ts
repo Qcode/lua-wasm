@@ -19,36 +19,14 @@ export default class ScopeVisitor extends AstVisitor {
   }
 
   leaveLocalAssignment(a: LocalAssignment): void {
+    const curBlock = this.blockStack[this.blockStack.length - 1];
+    const curFunction = this.functionStack[this.blockStack.length - 1];
     a.names.forEach((variable) => {
-      const curBlock = this.blockStack[this.blockStack.length - 1];
       curBlock.addLocalVarName(variable);
-      this.functionStack[this.blockStack.length - 1].addLocalVariable(
-        curBlock,
-        variable
-      );
+      curFunction.addLocalVariable(curBlock, variable);
     });
-  }
-
-  leaveAssignment(a: Assignment): void {
-    /*
-    // On leaving an assignment, we've already processed its fields
-    // So something like local x = x will work, the outer x variable
-    // access will be processed first
-
-    // If it's local, we need to store it in the block if it's not already stored there
-    if (a.local) {
-      // Block should know it's own local variables
-      a.variables.forEach((variable) => {
-        const curBlock = this.blockStack[this.blockStack.length - 1];
-        curBlock.addLocalVarName(variable.varName);
-        this.functionStack[this.blockStack.length - 1].addLocalVariable(
-          curBlock,
-          variable
-        );
-      });
-    } else {
-      // Otherwise, it's a non local assignment. We don't really care, since it's being stored in the
-    }*/
+    a.myBlock = curBlock;
+    a.myFunction = curFunction;
   }
 
   visitFunction(v: Function): void {

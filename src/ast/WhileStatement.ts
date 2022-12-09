@@ -15,6 +15,8 @@ export default class WhileStatement extends AstNode {
   accept(v: AstVisitor): void {
     v.visitWhileStatement(this);
     this.condition.accept(v);
+    v.intermediateWhileStatement(this);
     this.block.accept(v);
+    v.leaveWhileStatement(this);
   }
 }

@@ -4,16 +4,21 @@ import Expression from "./Expression";
 import Block from "./Block";
 
 export default class IfStatement extends AstNode {
-  conditions: Expression[];
-  blocks: Block[];
-  constructor(conditions: Expression[], blocks: Block[]) {
+  condition: Expression;
+  thenBlock: Block;
+  elseBlock?: Block = null;
+  constructor(condition: Expression, thenBlock: Block) {
     super();
-    this.conditions = conditions;
-    this.blocks = blocks;
+    this.condition = condition;
+    this.thenBlock = thenBlock;
   }
   accept(v: AstVisitor): void {
     v.visitIfStatement(this);
-    this.conditions.forEach((cond) => cond.accept(v));
-    this.blocks.forEach((block) => block.accept(v));
+    this.condition.accept(v);
+    v.visitIfStatementPostCond(this);
+    this.thenBlock.accept(v);
+    v.visitIfStatementPostThen(this);
+    if (this.elseBlock) this.elseBlock.accept(v);
+    v.leaveIfStatement(this);
   }
 }

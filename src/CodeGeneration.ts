@@ -11,12 +11,11 @@ export default class CodeGeneration {
   generateCode(ast: Function, functions: Function[], strings: string[]) {
     const { stringData, offset } = this.layoutStrings(strings);
     const prologue = `(module
-    (func $printNum (import "imports" "printNum") (param i32))
-    (func $printString (import "imports" "printString") (param i32))
+    (func $print (import "imports" "print") (param i32))
     (import "js" "mem" (memory 1))
     ${stringData}
-    (global $hp (mut i32) (i32.const ${offset}))
-    (global $fp (mut i32) (i32.const ${offset}))
+    (global $HP (mut i32) (i32.const ${offset}))
+    (global $FP (mut i32) (i32.const ${offset}))
     (global $SP (mut i32) (i32.const 65528))
     (table ${functions.length} funcref)
     (elem (i32.const 0) ${functions.reduce(
