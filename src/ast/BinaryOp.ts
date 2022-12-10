@@ -40,6 +40,7 @@ export default class BinaryOp extends Expression {
   accept(v: AstVisitor) {
     v.visitBinaryOp(this);
     this.left.accept(v);
+    v.intermediateBinaryOp(this);
     this.right.accept(v);
     v.leaveBinaryOp(this);
   }

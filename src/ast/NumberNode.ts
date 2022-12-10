@@ -4,7 +4,7 @@ import Expression from "./Expression.js";
 export default class NumberNode extends Expression {
   theNumber: number;
 
-  constructor(theNumber: string) {
+  constructor(theNumber: string | number) {
     super();
     this.theNumber = Number(theNumber);
   }

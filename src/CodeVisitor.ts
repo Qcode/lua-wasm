@@ -10,8 +10,9 @@ import NilNode from "./ast/NilNode.js";
 import BooleanNode from "./ast/BooleanNode.js";
 import Assignment from "./ast/Assignment.js";
 import WhileStatement from "./ast/WhileStatement.js";
-import ContinueStatement from "./ast/ContinueStatement.js";
 import IfStatement from "./ast/IfStatement.js";
+import UnaryOp, { Operators as UnaryOperators } from "./ast/UnaryOp.js";
+import BreakStatement from "./ast/BreakStatement.js";
 
 enum DynamicTypes {
   NIL = 0,
@@ -292,18 +293,18 @@ export default class CodeVisitor extends AstVisitor {
   }
 
   visitWhileStatement(v: WhileStatement): void {
-    this.addInstruction("(block (loop");
+    this.addInstruction(`(block $whileLoop${v.index} (loop`);
+  }
+
+  visitBreakStatement(v: BreakStatement): void {
+    this.addInstruction(`br $whileLoop${v.whileStatement.index}`);
   }
 
   intermediateWhileStatement(v: WhileStatement): void {
     this.popFromStack();
 
     // Break out of loop if false
-    this.addInstruction(
-      `(br_if 1 (i32.xor
-        (i32.const 1)
-        ${this.boolToWasmStack()}))`
-    );
+    this.addInstruction(`(br_if 1 ${this.negate(this.boolToWasmStack())})`);
   }
 
   leaveWhileStatement(v: WhileStatement): void {
@@ -316,7 +317,36 @@ export default class CodeVisitor extends AstVisitor {
     this.functionIndexes.pop();
   }
 
+  visitBinaryOp(b: BinaryOp): void {
+    if (b.operator === Operators.And || b.operator === Operators.Or) {
+      this.addInstruction("(block");
+    }
+  }
+
+  intermediateBinaryOp(b: BinaryOp): void {
+    if (b.operator === Operators.And) {
+      // Jump to end of expression if first arg is false/nil,
+      // we leave the first argument on the stack
+      this.addInstruction(
+        `(br_if 0 ${this.negate(this.boolToWasmStack(false))})`
+      );
+      this.popFromStack();
+    } else if (b.operator === Operators.Or) {
+      // Jump to end of loop if first arg is truthy
+      // Leave first argument on the stack
+      this.addInstruction(`(br_if 0 ${this.boolToWasmStack(false)})`);
+      this.popFromStack();
+    }
+  }
+
   leaveBinaryOp(b: BinaryOp): void {
+    if (b.operator === Operators.And || b.operator === Operators.Or) {
+      // In this case, we've evaluated the first and the second is the top of the stack
+      // So we just close our block and early return
+      this.addInstruction(")");
+      return;
+    }
+
     const instructionTypeLookUp = {
       [Operators.Add]: { instruction: "i32.add", type: DynamicTypes.INT },
       [Operators.Sub]: { instruction: "i32.sub", type: DynamicTypes.INT },
@@ -356,6 +386,23 @@ export default class CodeVisitor extends AstVisitor {
     );
   }
 
+  leaveUnaryOp(v: UnaryOp): void {
+    if (v.operator === UnaryOperators.Not) {
+      // Set the value to be 0/1 (true or false)
+      this.addInstruction(`(i32.store
+        (i32.add
+          (global.get $SP)
+          (i32.const ${VAR_SIZE + 4})
+        )
+        ${this.negate(this.boolToWasmStack(false))}
+      )`);
+      // Set the type to now be boolean
+      this.addInstruction(
+        `(i32.store (i32.add (global.get $SP) (i32.const ${VAR_SIZE})) (i32.const ${DynamicTypes.BOOL}))`
+      );
+    }
+  }
+
   addInstruction(instruction: string) {
     this.functionWasms[this.functionIndexes.length - 1] += instruction + "\n";
   }
@@ -373,10 +420,6 @@ export default class CodeVisitor extends AstVisitor {
 
   leaveIfStatement(v: IfStatement): void {
     this.addInstruction("))");
-  }
-
-  visitContinueStatement(v: ContinueStatement): void {
-    this.addInstruction("br 0");
   }
 
   popFromStack(n: number = 1) {
@@ -399,21 +442,55 @@ export default class CodeVisitor extends AstVisitor {
     return "(i32.load (i32.add (global.get $SP) (i32.const 4)))";
   }
 
-  boolToWasmStack() {
+  fetchTypeWithoutPopping() {
+    return `(i32.load
+      (i32.add
+        (global.get $SP)
+        (i32.const ${VAR_SIZE})
+      )
+    )`;
+  }
+
+  fetchValueWithoutPopping() {
+    return `(i32.load
+      (i32.add
+        (global.get $SP)
+        (i32.const ${4 + VAR_SIZE})
+      )
+    )`;
+  }
+
+  boolToWasmStack(popped = true) {
     // Assumes SP has just been popped, is pointing at top element
     return `(i32.and
               (i32.ne
-                ${this.fetchTypeJustPopped()}
+                ${
+                  popped
+                    ? this.fetchTypeJustPopped()
+                    : this.fetchTypeWithoutPopping()
+                }
                 (i32.const ${DynamicTypes.NIL})
               )
               (i32.or
                 (i32.ne
-                  ${this.fetchTypeJustPopped()}
+                  ${
+                    popped
+                      ? this.fetchTypeJustPopped()
+                      : this.fetchTypeWithoutPopping()
+                  }
                   (i32.const ${DynamicTypes.BOOL})
                 )
-                (i32.ne ${this.fetchValueJustPopped()} (i32.const 0))
+                (i32.ne ${
+                  popped
+                    ? this.fetchValueJustPopped()
+                    : this.fetchValueWithoutPopping()
+                } (i32.const 0))
               )
             )
     `;
+  }
+
+  negate(value: string) {
+    return `(i32.xor (i32.const 1) ${value} )`;
   }
 }

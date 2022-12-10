@@ -7,11 +7,11 @@ import CodeGeneration from "./CodeGeneration.js";
 import Function from "./ast/Function.js";
 import ScopeVisitor from "./ScopeVisitor.js";
 import StringVistor from "./StringVisitor.js";
-import FunctionVisitor from "./FunctionVisitor.js";
+import IndexVisitor from "./IndexVisitor.js";
 
 // Read a file, generate a parse tree through ANTLR
 const input = fs
-  .readFileSync(process.argv[2] ?? "testPrograms/ifCondition.lua")
+  .readFileSync(process.argv[2] ?? "testPrograms/repeat.lua")
   .toString();
 const chars = new antlr4.InputStream(input);
 const lexer = new LuaLexer(chars);
@@ -30,13 +30,13 @@ ast.accept(new ScopeVisitor());
 const stringVisitor = new StringVistor();
 ast.accept(stringVisitor);
 
-const functionVisitor = new FunctionVisitor();
-ast.accept(functionVisitor);
+const indexVisitor = new IndexVisitor();
+ast.accept(indexVisitor);
 
 // Generate code, output it
 const codeOutput = new CodeGeneration().generateCode(
   ast,
-  functionVisitor.functions,
+  indexVisitor.functions,
   Array.from(stringVisitor.strings)
 );
 

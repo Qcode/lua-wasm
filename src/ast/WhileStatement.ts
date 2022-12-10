@@ -6,6 +6,7 @@ import Expression from "./Expression";
 export default class WhileStatement extends AstNode {
   condition: Expression;
   block: Block;
+  index: number;
 
   constructor(condition: Expression, block: Block) {
     super();

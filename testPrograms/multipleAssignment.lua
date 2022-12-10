@@ -9,7 +9,19 @@ print(x)
 print("y is")
 print(y)
 
-x, y = f(), 1
+letters = {"a", "b", "c"}
+
+for index, value in pairs(letters) do
+end
+
+if (f()) then
+end
+
+function f()
+    return true, "because i said so"
+end
+
+x, y, z = 1, f()
 
 function f()
     return 1, 2

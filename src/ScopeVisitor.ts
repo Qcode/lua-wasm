@@ -20,7 +20,7 @@ export default class ScopeVisitor extends AstVisitor {
 
   leaveLocalAssignment(a: LocalAssignment): void {
     const curBlock = this.blockStack[this.blockStack.length - 1];
-    const curFunction = this.functionStack[this.blockStack.length - 1];
+    const curFunction = this.functionStack[this.functionStack.length - 1];
     a.names.forEach((variable) => {
       curBlock.addLocalVarName(variable);
       curFunction.addLocalVariable(curBlock, variable);

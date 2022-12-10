@@ -9,14 +9,11 @@ import Variable from "./ast/Variable";
 import Function from "./ast/Function";
 import ReturnStatement from "./ast/ReturnStatement";
 import BreakStatement from "./ast/BreakStatement";
-import ContinueStatement from "./ast/ContinueStatement";
 import IfStatement from "./ast/IfStatement";
 import BooleanNode from "./ast/BooleanNode";
 import NilNode from "./ast/NilNode";
 import UnaryOp from "./ast/UnaryOp";
 import WhileStatement from "./ast/WhileStatement";
-import Repeat from "./ast/Repeat";
-import NumericFor from "./ast/NumericFor";
 import LocalAssignment from "./ast/LocalAssignment";
 
 export default abstract class AstVisitor {
@@ -27,6 +24,7 @@ export default abstract class AstVisitor {
   leaveLocalAssignment(a: LocalAssignment) {}
 
   visitBinaryOp(b: BinaryOp) {}
+  intermediateBinaryOp(b: BinaryOp) {}
   leaveBinaryOp(b: BinaryOp) {}
 
   visitBlock(b: Block) {}
@@ -46,7 +44,6 @@ export default abstract class AstVisitor {
 
   visitReturnStatement(v: ReturnStatement) {}
   visitBreakStatement(v: BreakStatement) {}
-  visitContinueStatement(v: ContinueStatement) {}
 
   visitIfStatement(v: IfStatement) {}
   visitIfStatementPostCond(v: IfStatement) {}
@@ -55,12 +52,11 @@ export default abstract class AstVisitor {
 
   visitBooleanNode(v: BooleanNode) {}
   visitNilNode(v: NilNode) {}
+
   visitUnaryOp(v: UnaryOp) {}
+  leaveUnaryOp(v: UnaryOp) {}
 
   visitWhileStatement(v: WhileStatement) {}
   intermediateWhileStatement(v: WhileStatement) {}
   leaveWhileStatement(v: WhileStatement) {}
-
-  visitRepeat(v: Repeat) {}
-  visitNumericFor(v: NumericFor) {}
 }

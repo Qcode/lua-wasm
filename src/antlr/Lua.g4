@@ -95,7 +95,6 @@ stat
 laststat
     : 'return' explist? # returnStat
     | 'break' # breakStat
-    | 'continue' ';'? #continueStat
     ;
 
 label

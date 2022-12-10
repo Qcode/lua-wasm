@@ -1,7 +1,7 @@
 import AstVisitor from "../AstVisitor.js";
 import Expression from "./Expression.js";
 
-enum Operators {
+export enum Operators {
   Not = "not",
   Length = "#",
   Negation = "-",
@@ -21,5 +21,6 @@ export default class UnaryOp extends Expression {
   accept(v: AstVisitor) {
     v.visitUnaryOp(this);
     this.sub.accept(v);
+    v.leaveUnaryOp(this);
   }
 }

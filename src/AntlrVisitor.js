@@ -3,7 +3,7 @@ import Block from "./ast/Block.js";
 import Variable from "./ast/Variable.js";
 import Assignment from "./ast/Assignment.js";
 import NumberNode from "./ast/NumberNode.js";
-import BinaryOp from "./ast/BinaryOp.js";
+import BinaryOp, { Operators as BinaryOperators } from "./ast/BinaryOp.js";
 import StringNode from "./ast/StringNode.js";
 import FuncCall from "./ast/FuncCall.js";
 import Function from "./ast/Function.js";
@@ -11,11 +11,11 @@ import ReturnStatement from "./ast/ReturnStatement.js";
 import IfStatement from "./ast/IfStatement.js";
 import BooleanNode from "./ast/BooleanNode.js";
 import NilNode from "./ast/NilNode.js";
-import UnaryOp from "./ast/UnaryOp.js";
+import UnaryOp, { Operators } from "./ast/UnaryOp.js";
 import WhileStatement from "./ast/WhileStatement.js";
-import Repeat from "./ast/Repeat.js";
-import NumericFor from "./ast/NumericFor.js";
 import LocalAssignment from "./ast/LocalAssignment.js";
+import BreakStatement from "./ast/BreakStatement.js";
+import { v4 as uuid } from "uuid";
 
 // Transforms the tree from just being an ANTLR parse tree into an AST
 // defined by my own classes which is easier to manipulate
@@ -25,17 +25,96 @@ export default class AntlrVisitor {
       return;
     }
     if (ctx instanceof LuaParser.StatNumericForContext) {
-      return new NumericFor(
-        new Variable(ctx.getChild(1).getText()),
-        ctx.block().accept(this),
-        ctx.getChild(3).accept(this),
-        ctx.getChild(5).accept(this),
-        ctx.getChildCount() === 10 ? ctx.getChild(7).accept(this) : null
-      );
+      // Transform the Numeric For loop into a while loop as specified in
+      // the Lua 5.3 reference manual
+      const varName = uuid();
+      const limitName = uuid();
+      const stepName = uuid();
+
+      return new Block([
+        new LocalAssignment(
+          [varName, limitName, stepName],
+          [
+            ctx.getChild(3).accept(this),
+            ctx.getChild(5).accept(this),
+            ctx.getChildCount() === 11
+              ? ctx.getChild(7).accept(this)
+              : new NumberNode(1),
+          ]
+        ),
+        new Assignment(
+          [new Variable(varName)],
+          [
+            new BinaryOp(
+              new Variable(varName),
+              new Variable(stepName),
+              BinaryOperators.Sub
+            ),
+          ]
+        ),
+        new WhileStatement(
+          new BooleanNode(true),
+          new Block([
+            new Assignment(
+              [new Variable(varName)],
+              [
+                new BinaryOp(
+                  new Variable(varName),
+                  new Variable(stepName),
+                  BinaryOperators.Add
+                ),
+              ]
+            ),
+            new IfStatement(
+              new BinaryOp(
+                new BinaryOp(
+                  new BinaryOp(
+                    new Variable(stepName),
+                    new NumberNode(0),
+                    BinaryOperators.Geq
+                  ),
+                  new BinaryOp(
+                    new Variable(varName),
+                    new Variable(limitName),
+                    BinaryOperators.Gt
+                  ),
+                  BinaryOperators.And
+                ),
+                new BinaryOp(
+                  new BinaryOp(
+                    new Variable(stepName),
+                    new NumberNode(0),
+                    BinaryOperators.Lt
+                  ),
+                  new BinaryOp(
+                    new Variable(varName),
+                    new Variable(limitName),
+                    BinaryOperators.Lt
+                  ),
+                  BinaryOperators.And
+                ),
+                BinaryOperators.Or
+              ),
+              new Block([], new BreakStatement())
+            ),
+            new LocalAssignment(
+              [ctx.getChild(1).getText()],
+              [new Variable(varName)]
+            ),
+            ctx.block().accept(this),
+          ])
+        ),
+      ]);
     }
 
     if (ctx instanceof LuaParser.StatRepeatContext) {
-      return new Repeat(ctx.exp().accept(this), ctx.block().accept(this));
+      return new Block([
+        ctx.block().accept(this),
+        new WhileStatement(
+          new UnaryOp(ctx.exp().accept(this), Operators.Not),
+          ctx.block().accept(this)
+        ),
+      ]);
     }
 
     if (ctx instanceof LuaParser.StatDoContext) {
@@ -101,6 +180,13 @@ export default class AntlrVisitor {
       return new ReturnStatement(
         ctx.explist() ? ctx.explist().accept(this) : []
       );
+    }
+
+    if (
+      ctx instanceof LuaParser.BreakStatContext ||
+      ctx instanceof LuaParser.StatBreakContext
+    ) {
+      return new BreakStatement();
     }
 
     if (ctx instanceof LuaParser.BlockContext) {
