@@ -16,6 +16,7 @@ import WhileStatement from "./ast/WhileStatement.js";
 import LocalAssignment from "./ast/LocalAssignment.js";
 import BreakStatement from "./ast/BreakStatement.js";
 import { v4 as uuid } from "uuid";
+import ExpressionList from "./ast/ExpressionList.js";
 
 // Transforms the tree from just being an ANTLR parse tree into an AST
 // defined by my own classes which is easier to manipulate
@@ -34,36 +35,36 @@ export default class AntlrVisitor {
       return new Block([
         new LocalAssignment(
           [varName, limitName, stepName],
-          [
+          new ExpressionList([
             ctx.getChild(3).accept(this),
             ctx.getChild(5).accept(this),
             ctx.getChildCount() === 11
               ? ctx.getChild(7).accept(this)
               : new NumberNode(1),
-          ]
+          ])
         ),
         new Assignment(
           [new Variable(varName)],
-          [
+          new ExpressionList([
             new BinaryOp(
               new Variable(varName),
               new Variable(stepName),
               BinaryOperators.Sub
             ),
-          ]
+          ])
         ),
         new WhileStatement(
           new BooleanNode(true),
           new Block([
             new Assignment(
               [new Variable(varName)],
-              [
+              new ExpressionList([
                 new BinaryOp(
                   new Variable(varName),
                   new Variable(stepName),
                   BinaryOperators.Add
                 ),
-              ]
+              ])
             ),
             new IfStatement(
               new BinaryOp(
@@ -99,7 +100,7 @@ export default class AntlrVisitor {
             ),
             new LocalAssignment(
               [ctx.getChild(1).getText()],
-              [new Variable(varName)]
+              new ExpressionList([new Variable(varName)])
             ),
             ctx.block().accept(this),
           ])
@@ -178,7 +179,7 @@ export default class AntlrVisitor {
 
     if (ctx instanceof LuaParser.ReturnStatContext) {
       return new ReturnStatement(
-        ctx.explist() ? ctx.explist().accept(this) : []
+        ctx.explist() ? ctx.explist().accept(this) : new ExpressionList([])
       );
     }
 
@@ -218,13 +219,17 @@ export default class AntlrVisitor {
       for (let x = 0; x < ctx.getChildCount(); x += 2) {
         results.push(ctx.getChild(x).accept(this));
       }
-      return results;
+      return ctx instanceof LuaParser.ExplistContext
+        ? new ExpressionList(results)
+        : results;
     }
 
     if (ctx instanceof LuaParser.StatLocalAssignmentContext) {
       return new LocalAssignment(
         ctx.getChild(1).accept(this),
-        ctx.getChildCount() >= 3 ? ctx.getChild(3).accept(this) : []
+        ctx.getChildCount() >= 3
+          ? ctx.getChild(3).accept(this)
+          : new ExpressionList([])
       );
     }
 
@@ -242,7 +247,9 @@ export default class AntlrVisitor {
       const myArgs = functionCallNode.nameAndArgs()[0].args();
       return new FuncCall(
         functionCallNode.varOrExp().accept(this),
-        myArgs.explist() ? myArgs.explist().accept(this) : []
+        myArgs.explist()
+          ? myArgs.explist().accept(this)
+          : new ExpressionList([])
       );
     }
 
@@ -266,14 +273,14 @@ export default class AntlrVisitor {
       // Handle functions in tables later
       return new Assignment(
         [new Variable(ctx.funcname().getText())],
-        [ctx.getChild(2).accept(this)]
+        new ExpressionList([ctx.getChild(2).accept(this)])
       );
     }
 
     if (ctx instanceof LuaParser.StatLocalfuncDeclarationContext) {
       return new LocalAssignment(
         [ctx.NAME().getText()],
-        [ctx.funcbody().accept(this)]
+        new ExpressionList([ctx.funcbody().accept(this)])
       );
     }
 

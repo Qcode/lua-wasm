@@ -13,6 +13,7 @@ import WhileStatement from "./ast/WhileStatement.js";
 import IfStatement from "./ast/IfStatement.js";
 import UnaryOp, { Operators as UnaryOperators } from "./ast/UnaryOp.js";
 import BreakStatement from "./ast/BreakStatement.js";
+import ReturnStatement from "./ast/ReturnStatement.js";
 
 enum DynamicTypes {
   NIL = 0,
@@ -29,6 +30,10 @@ enum DynamicTypes {
 // Variables contain a 4 byte type and a 4 byte value
 const VAR_SIZE = 8;
 
+// 4 bytes for dynamic link,
+// 4 bytes for static link
+const FRAME_PROLOGUE_SIZE = 8;
+
 export default class CodeVisitor extends AstVisitor {
   functions: Function[];
 
@@ -38,79 +43,157 @@ export default class CodeVisitor extends AstVisitor {
 
   stringLocationMap: Map<string, number>;
 
-  constructor(functions: Function[], stringLocationMap: Map<string, number>) {
+  functionParamDataOffset: number;
+
+  constructor(
+    functions: Function[],
+    stringLocationMap: Map<string, number>,
+    functionParamDataOffset: number
+  ) {
     super();
     this.functions = functions;
     this.functionWasms = new Array(this.functions.length).fill("");
     this.stringLocationMap = stringLocationMap;
+    this.functionParamDataOffset = functionParamDataOffset;
   }
 
   visitNumberNode(n: NumberNode): void {
     // Deal with floats/ints later
-    // Store type
-
-    this.addInstruction(
-      `(i32.store (global.get $SP) (i32.const ${DynamicTypes.INT}))`
-    );
-    // Store number
-    this.addInstruction(
-      `(i32.store (i32.add (i32.const 4) (global.get $SP)) (i32.const ${n.theNumber}))`
-    );
-
-    this.pushSP();
+    this.putOnStack(DynamicTypes.INT, `(i32.const ${n.theNumber})`);
   }
 
   visitNilNode(v: NilNode): void {
-    this.addInstruction(
-      `(i32.store (global.get $SP) (i32.const ${DynamicTypes.NIL}))`
-    );
-    // Store number
-    this.addInstruction(
-      `(i32.store (i32.add (i32.const 4) (global.get $SP)) (i32.const ${DynamicTypes.NIL}))`
-    );
-
-    this.pushSP();
+    this.putOnStack(DynamicTypes.NIL, `(i32.const ${DynamicTypes.NIL})`);
   }
 
   visitStringNode(s: StringNode): void {
-    this.addInstruction(
-      `(i32.store (global.get $SP) (i32.const ${DynamicTypes.STRING}))`
+    this.putOnStack(
+      DynamicTypes.STRING,
+      `(i32.const ${this.stringLocationMap.get(s.theString)})`
     );
-    this.addInstruction(
-      `(i32.store (i32.add (i32.const 4) (global.get $SP)) (i32.const ${this.stringLocationMap.get(
-        s.theString
-      )}))`
-    );
-    this.pushSP();
   }
 
   visitBooleanNode(v: BooleanNode): void {
-    this.addInstruction(
-      `(i32.store (global.get $SP) (i32.const ${DynamicTypes.BOOL}))`
-    );
-    this.addInstruction(
-      `(i32.store (i32.add (i32.const 4) (global.get $SP)) (i32.const ${
-        v.val ? 1 : 0
-      }))`
-    );
-    this.pushSP();
+    this.putOnStack(DynamicTypes.BOOL, `(i32.const ${v.val ? 1 : 0})`);
   }
 
   leaveFuncCall(f: FuncCall): void {
-    // Hardcode printing for now
+    // Hardcode printing for now, should be stored in global table somewhere probably
+    // So that they can reassign, etc.
     if (f.theFunc instanceof Variable && f.theFunc.varName === "print") {
       this.addInstruction(
         `(global.set $SP (i32.add (global.get $SP) (i32.const ${VAR_SIZE})))`
       );
       this.addInstruction(`global.get $SP`);
       this.addInstruction(`call $print`);
+      return;
     }
+
+    // At this point, we have the closure, then a bunch of expressions for parameters
+    // Have to allocate space for the frame, jump there, finish, etc.
+    // Pop stuff off the stack too
+
+    // For now, assume that we have no expressions
+
+    const funcValueLocation = `(i32.load
+      (i32.add
+        (global.get $SP)
+        (i32.const ${VAR_SIZE * (f.args.expressions.length + 1) + 4})
+      )
+    )`;
+
+    const functionIndex = `(i32.load
+      ${funcValueLocation}
+    )`;
+
+    const staticLink = `(i32.load (i32.add (i32.const 4) ${funcValueLocation}))`;
+
+    const numParams = `(i32.load
+      (i32.add
+        (i32.const ${this.functionParamDataOffset})
+        (i32.mul (i32.const 4) ${functionIndex})
+      )
+    )`;
+
+    const frameSize = `(i32.add
+      (i32.const ${FRAME_PROLOGUE_SIZE})
+      (i32.mul (i32.const ${VAR_SIZE}) ${numParams})
+    )`;
+
+    this.addInstruction(this.alloc(frameSize));
+
+    const frameBase = `(i32.sub (global.get $HP) ${frameSize})`;
+
+    // Set up static link
+
+    this.addInstruction(`(i32.store ${frameBase} ${staticLink})`);
+
+    // Set up dynamic link
+
+    this.addInstruction(`(i32.store
+      (i32.add (i32.const 4) ${frameBase})
+      (global.get $FP)
+    )`);
+
+    // Copy arguments from stack to frame
+    // TODO  Subtract from SP excess arguments if too many are passed
+    this.addInstruction(
+      `(memory.copy
+        (i32.add (i32.const ${FRAME_PROLOGUE_SIZE}) ${frameBase})
+        (i32.add
+          (global.get $SP)
+          (i32.const ${VAR_SIZE})
+        )
+        (i32.const ${VAR_SIZE * f.args.expressions.length})
+      )`
+    );
+
+    this.addInstruction(`(global.set $FP ${frameBase})`);
+
+    this.addInstruction(`(call_indirect (type $basicFunc) ${functionIndex})`);
+
+    // Check if this is in the right place
+    this.popFromStack(f.args.expressions.length + 1);
+
+    this.addInstruction(
+      `(global.set $FP (i32.load (i32.add (global.get $FP) (i32.const 4))))`
+    );
   }
 
   visitFunction(v: Function): void {
-    // Place function on the stack - function pointer and static link pointer
+    if (this.functionIndexes.length > 0) {
+      // Closure creation
+
+      // 4 bytes for function index
+      // 4 bytes for environment pointer
+      this.addInstruction(this.alloc("(i32.const 8)"));
+
+      // Store function pointer
+      this.addInstruction(
+        `(i32.store (i32.sub (global.get $HP) (i32.const 8)) (i32.const ${v.index}))`
+      );
+      // Store static link
+
+      const caller = this.getCurrentFunction();
+      const followStaticLinkTimes = caller.nestingDepth - v.nestingDepth + 1;
+
+      // Memory location to store in
+      this.addInstruction("(i32.sub (global.get $HP) (i32.const 4))");
+      // Static link (value)
+      this.followStaticLink(followStaticLinkTimes);
+
+      // Store function pointer at (i32.sub (global.get $HP) (i32.const 4))
+      this.addInstruction("i32.store");
+
+      // Place function on the stack - function pointer and static link pointer
+      this.putOnStack(
+        DynamicTypes.FUNCTION,
+        `(i32.sub (global.get $HP) (i32.const 8))`
+      );
+    }
+    // Now, swap to writing the code for the function we've called
+
     this.functionIndexes.push(v.index);
-    // To do - add results for functions that aren't the 0th
     const funcDeclaration =
       this.functionIndexes.length === 1
         ? `(func $f${v.index} (export "main")`
@@ -126,6 +209,20 @@ export default class CodeVisitor extends AstVisitor {
           `(i32.store (i32.const ${stringLocation}) (i32.const ${string.length}))`
         );
       }
+
+      // Also initialize in here the data segment, the number of parameters to each function
+      // Will need to be looked up to determine for closures, how much space to allocate at runtime
+      this.functions.forEach((func) => {
+        this.addInstruction(
+          `(i32.store (global.get $HP) (i32.const ${func.totalVars}))`
+        );
+        this.addInstruction(
+          `(global.set $FP (i32.add (global.get $FP) (i32.const 4)))`
+        );
+        this.addInstruction(
+          `(global.set $HP (i32.add (global.get $HP) (i32.const 4)))`
+        );
+      });
 
       // Static Link
       this.addInstruction(`(i32.store (global.get $FP) (i32.const -1))`);
@@ -144,6 +241,14 @@ export default class CodeVisitor extends AstVisitor {
     }
   }
 
+  leaveFunction(v: Function): void {
+    // If we hit this point, we've not returned anything.
+    // Create size 0 return array
+    // End function declaration
+    this.addInstruction(")");
+    this.functionIndexes.pop();
+  }
+
   leaveLocalAssignment(a: LocalAssignment): void {
     // For now, assume that no function calls happen
     // For local a, b, c = 1, 2, 3
@@ -157,19 +262,19 @@ export default class CodeVisitor extends AstVisitor {
       const varLocation = `(i32.add (global.get $FP) (i32.const ${
         VAR_SIZE * offset + 8 + 4
       }))`;
-      if (x < a.values.length) {
+      if (x < a.values.expressions.length) {
         //console.log(offset);
         // Copy type
         this.addInstruction(`(i32.store
           ${typeLocation}
           (i32.load (i32.add (i32.const ${
-            (a.values.length - x) * VAR_SIZE
+            (a.values.expressions.length - x) * VAR_SIZE
           }) (global.get $SP))))`);
         // Copy value
         this.addInstruction(`(i32.store
           ${varLocation}
           (i32.load (i32.add (i32.const ${
-            (a.values.length - x) * VAR_SIZE + 4
+            (a.values.expressions.length - x) * VAR_SIZE + 4
           }) (global.get $SP))))`);
       } else {
         // Set to nil
@@ -184,7 +289,7 @@ export default class CodeVisitor extends AstVisitor {
       }
     }
 
-    this.popFromStack(a.values.length);
+    this.popFromStack(a.values.expressions.length);
   }
 
   leaveAssignment(a: Assignment): void {
@@ -194,7 +299,7 @@ export default class CodeVisitor extends AstVisitor {
     // 4 bytes for mem location of b,
     // 4 bytes for mem location of a
 
-    const expressionSize = a.values.length * VAR_SIZE;
+    const expressionSize = a.values.expressions.length * VAR_SIZE;
 
     for (let x = 0; x < a.variables.length; ++x) {
       const writeTypeTo = `(i32.load (i32.add (global.get $SP) (i32.const ${
@@ -202,19 +307,19 @@ export default class CodeVisitor extends AstVisitor {
       })))`;
       const writeValueTo = `(i32.add (i32.const 4) ${writeTypeTo})`;
 
-      if (x < a.values.length) {
+      if (x < a.values.expressions.length) {
         //console.log(offset);
         // Copy type
         this.addInstruction(`(i32.store
           ${writeTypeTo}
           (i32.load (i32.add (i32.const ${
-            8 + (a.values.length - x - 1) * VAR_SIZE
+            8 + (a.values.expressions.length - x - 1) * VAR_SIZE
           }) (global.get $SP))))`);
         // Copy value
         this.addInstruction(`(i32.store
           ${writeValueTo}
           (i32.load (i32.add (i32.const ${
-            8 + 4 + (a.values.length - x - 1) * VAR_SIZE
+            8 + 4 + (a.values.expressions.length - x - 1) * VAR_SIZE
           }) (global.get $SP))))`);
       } else {
         // Set to nil
@@ -229,66 +334,74 @@ export default class CodeVisitor extends AstVisitor {
       }
     }
 
-    this.popFromStack(a.variables.length + a.values.length);
+    this.popFromStack(a.variables.length + a.values.expressions.length);
   }
 
   visitVariable(v: Variable): void {
-    if (v.get && !v.global) {
+    if (!v.global) {
       const followStaticLinkTimes =
         v.usedInFunction.nestingDepth - v.declaredInFunction.nestingDepth;
-
-      for (let x = 0; x < followStaticLinkTimes; ++x) {
-        // Follow static link code
-      }
 
       const varIndex = v.declaredInFunction.getLocal(
         v.surroundingBlock,
         v.varName
       );
 
-      // Push type
-      this.addInstruction(`(i32.store
-        (global.get $SP)
-        (i32.load (i32.add (i32.const ${
-          8 + varIndex * VAR_SIZE
-        }) (global.get $FP))))`);
+      // Set type
+      if (v.get) {
+        // Push type
+        this.addInstruction("global.get $SP");
 
-      // Push Value
-      this.addInstruction(`(i32.store
-        (i32.add (i32.const 4) (global.get $SP))
-        (i32.load (i32.add (i32.const ${
-          8 + 4 + varIndex * VAR_SIZE
-        }) (global.get $FP))))`);
+        this.followStaticLink(followStaticLinkTimes);
+        // Top of WASM stack has the frame we're accessing the variable in
+        this.addInstruction(
+          `(i32.const ${FRAME_PROLOGUE_SIZE + varIndex * VAR_SIZE})`
+        );
+        // Add the offset to this frame
+        this.addInstruction("i32.add");
+        // Retrieve the type at this location
+        this.addInstruction("i32.load");
+        // Store the type on my stack
+        this.addInstruction("i32.store");
+      } else {
+        // Doing an assignment, so we're pushing a pointer
+        this.addInstruction(
+          `(i32.store (global.get $SP) (i32.const ${DynamicTypes.POINTER}))`
+        );
+      }
+
+      this.addInstruction("(i32.add (global.get $SP) (i32.const 4))");
+
+      // Now, do it again, but with the value, storing it at the value location on the stack
+      this.followStaticLink(followStaticLinkTimes);
+
+      // Now set the value
+      if (v.get) {
+        // Top of WASM stack has the frame we're accessing the variable in
+        this.addInstruction(
+          `(i32.const ${FRAME_PROLOGUE_SIZE + varIndex * VAR_SIZE + 4})`
+        );
+
+        // Add the offset to this frame
+        this.addInstruction("i32.add");
+        // If it's a get, we fetch the value. Otherwise, we just use the pointer to that value
+        this.addInstruction("i32.load");
+      } else {
+        this.addInstruction(
+          `(i32.const ${FRAME_PROLOGUE_SIZE + varIndex * VAR_SIZE})`
+        );
+
+        // Add the offset to this frame
+        this.addInstruction("i32.add");
+      }
+
+      // Store the type on my stack
+      this.addInstruction("i32.store");
 
       // Update SP
       this.pushSP();
-    } else if (v.get && v.global) {
-    } else if (!v.get && !v.global) {
-      const followStaticLinkTimes =
-        v.usedInFunction.nestingDepth - v.declaredInFunction.nestingDepth;
-
-      for (let x = 0; x < followStaticLinkTimes; ++x) {
-        // Follow static link code
-      }
-
-      const varIndex = v.declaredInFunction.getLocal(
-        v.surroundingBlock,
-        v.varName
-      );
-
-      this.addInstruction(
-        `(i32.store (global.get $SP) (i32.const ${DynamicTypes.POINTER}))`
-      );
-
-      this.addInstruction(
-        `(i32.store (i32.add (i32.const 4) (global.get $SP)) (i32.add (i32.const ${
-          8 + varIndex * VAR_SIZE
-        }) (global.get $FP)))`
-      );
-
-      this.pushSP();
     } else {
-      // set a global variable
+      // console.error("Global", v.varName);
     }
   }
 
@@ -298,6 +411,10 @@ export default class CodeVisitor extends AstVisitor {
 
   visitBreakStatement(v: BreakStatement): void {
     this.addInstruction(`br $whileLoop${v.whileStatement.index}`);
+  }
+
+  leaveReturnStatement(v: ReturnStatement): void {
+    this.addInstruction(`return`);
   }
 
   intermediateWhileStatement(v: WhileStatement): void {
@@ -310,11 +427,6 @@ export default class CodeVisitor extends AstVisitor {
   leaveWhileStatement(v: WhileStatement): void {
     this.addInstruction("br 0");
     this.addInstruction("))");
-  }
-
-  leaveFunction(v: Function): void {
-    this.addInstruction(")");
-    this.functionIndexes.pop();
   }
 
   visitBinaryOp(b: BinaryOp): void {
@@ -345,6 +457,11 @@ export default class CodeVisitor extends AstVisitor {
       // So we just close our block and early return
       this.addInstruction(")");
       return;
+    }
+
+    if (b.operator === Operators.Concatenation) {
+      // Get lengths of the strings
+      this.addInstruction("");
     }
 
     const instructionTypeLookUp = {
@@ -404,7 +521,11 @@ export default class CodeVisitor extends AstVisitor {
   }
 
   addInstruction(instruction: string) {
-    this.functionWasms[this.functionIndexes.length - 1] += instruction + "\n";
+    this.functionWasms[
+      this.functions[
+        this.functionIndexes[this.functionIndexes.length - 1]
+      ].index
+    ] += instruction + "\n";
   }
 
   visitIfStatementPostCond(v: IfStatement): void {
@@ -492,5 +613,36 @@ export default class CodeVisitor extends AstVisitor {
 
   negate(value: string) {
     return `(i32.xor (i32.const 1) ${value} )`;
+  }
+
+  alloc(size: string) {
+    return `(global.set $HP
+      (i32.add
+        (global.get $HP)
+        ${size}
+      )
+    )`;
+  }
+
+  putOnStack(type: DynamicTypes, value: string) {
+    this.addInstruction(`(i32.store (global.get $SP) (i32.const ${type}))`);
+    // Store number
+    this.addInstruction(
+      `(i32.store (i32.add (i32.const 4) (global.get $SP)) ${value})`
+    );
+    this.pushSP();
+  }
+
+  getCurrentFunction(): Function {
+    return this.functions[
+      this.functionIndexes[this.functionIndexes.length - 1]
+    ];
+  }
+
+  followStaticLink(n: number) {
+    this.addInstruction(`global.get $FP`);
+    for (let x = 0; x < n; x++) {
+      this.addInstruction(`i32.load`);
+    }
   }
 }

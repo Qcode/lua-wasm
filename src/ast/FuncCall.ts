@@ -1,12 +1,20 @@
 import AstVisitor from "../AstVisitor.js";
 import Expression from "./Expression.js";
-import Variable from "./Variable.js";
+import ExpressionList from "./ExpressionList.js";
+
+export enum CopyReturnValues {
+  Zero,
+  One,
+  Many,
+}
 
 export default class FuncCall extends Expression {
-  theFunc: Variable | Expression;
-  args: Expression[];
+  theFunc: Expression;
+  args: ExpressionList;
 
-  constructor(theFunc: Variable | Expression, args: Expression[]) {
+  copyReturnValues = CopyReturnValues.One;
+
+  constructor(theFunc: Expression, args: ExpressionList) {
     super();
     this.theFunc = theFunc;
     this.args = args;
@@ -15,7 +23,7 @@ export default class FuncCall extends Expression {
   accept(v: AstVisitor) {
     v.visitFuncCall(this);
     this.theFunc.accept(v);
-    this.args.forEach((arg) => arg.accept(v));
+    this.args.accept(v);
     v.leaveFuncCall(this);
   }
 }

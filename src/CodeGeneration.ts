@@ -13,17 +13,22 @@ export default class CodeGeneration {
     const prologue = `(module
     (func $print (import "imports" "print") (param i32))
     (import "js" "mem" (memory 1))
+    (type $basicFunc (func))
     ${stringData}
     (global $HP (mut i32) (i32.const ${offset}))
     (global $FP (mut i32) (i32.const ${offset}))
     (global $SP (mut i32) (i32.const 65528))
     (table ${functions.length} funcref)
     (elem (i32.const 0) ${functions.reduce(
-      (acc, fn) => acc + `$f${fn.index}`,
+      (acc, fn) => acc + `$f${fn.index} `,
       ""
     )})`;
 
-    const codeVisitor = new CodeVisitor(functions, this.stringLocationMap);
+    const codeVisitor = new CodeVisitor(
+      functions,
+      this.stringLocationMap,
+      offset
+    );
     ast.accept(codeVisitor);
 
     const funcs = codeVisitor.functionWasms.reduce(

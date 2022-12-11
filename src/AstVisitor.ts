@@ -15,6 +15,7 @@ import NilNode from "./ast/NilNode";
 import UnaryOp from "./ast/UnaryOp";
 import WhileStatement from "./ast/WhileStatement";
 import LocalAssignment from "./ast/LocalAssignment";
+import ExpressionList from "./ast/ExpressionList";
 
 export default abstract class AstVisitor {
   visitAssignment(a: Assignment) {}
@@ -42,7 +43,12 @@ export default abstract class AstVisitor {
   visitFunction(v: Function) {}
   leaveFunction(v: Function) {}
 
+  visitExpressionList(v: ExpressionList) {}
+  leaveExpressionList(v: ExpressionList) {}
+
   visitReturnStatement(v: ReturnStatement) {}
+  leaveReturnStatement(v: ReturnStatement) {}
+
   visitBreakStatement(v: BreakStatement) {}
 
   visitIfStatement(v: IfStatement) {}

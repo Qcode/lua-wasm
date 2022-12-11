@@ -3,3 +3,6 @@ node_modules
 ts-built
 **/*.wasm
 **/*.wat
+
+testPrograms/*.actual
+testPrograms/*.expected

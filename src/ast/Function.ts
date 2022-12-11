@@ -23,6 +23,7 @@ export default class Function extends Expression {
     this.localVariables.set(this.body, new Map());
     this.parameters.forEach((param) => {
       this.localVariables.get(this.body).set(param, this.totalVars);
+      this.body.addLocalVarName(param);
       this.totalVars += 1;
     });
   }

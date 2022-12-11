@@ -11,7 +11,7 @@ import IndexVisitor from "./IndexVisitor.js";
 
 // Read a file, generate a parse tree through ANTLR
 const input = fs
-  .readFileSync(process.argv[2] ?? "testPrograms/repeat.lua")
+  .readFileSync(process.argv[2] ?? "testPrograms/sumNumbersFunc.lua")
   .toString();
 const chars = new antlr4.InputStream(input);
 const lexer = new LuaLexer(chars);

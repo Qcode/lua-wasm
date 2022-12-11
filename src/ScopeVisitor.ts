@@ -1,5 +1,6 @@
 import Assignment from "./ast/Assignment.js";
 import Block from "./ast/Block.js";
+import FuncCall, { CopyReturnValues } from "./ast/FuncCall.js";
 import Function from "./ast/Function.js";
 import LocalAssignment from "./ast/LocalAssignment.js";
 import Variable from "./ast/Variable.js";
@@ -16,6 +17,27 @@ export default class ScopeVisitor extends AstVisitor {
 
   constructor() {
     super();
+  }
+
+  visitLocalAssignment(a: LocalAssignment): void {
+    const finalVal = a.values.expressions[a.values.expressions.length - 1];
+    if (a.values.expressions.length > 1 && finalVal instanceof FuncCall) {
+      finalVal.copyReturnValues = CopyReturnValues.Many;
+    }
+  }
+
+  visitAssignment(a: Assignment): void {
+    const finalVal = a.values.expressions[a.values.expressions.length - 1];
+    if (a.values.expressions.length > 1 && finalVal instanceof FuncCall) {
+      finalVal.copyReturnValues = CopyReturnValues.Many;
+    }
+  }
+
+  visitFuncCall(f: FuncCall): void {
+    const finalVal = f.args.expressions[f.args.expressions.length - 1];
+    if (f.args.expressions.length > 1 && finalVal instanceof FuncCall) {
+      finalVal.copyReturnValues = CopyReturnValues.Many;
+    }
   }
 
   leaveLocalAssignment(a: LocalAssignment): void {
@@ -42,6 +64,12 @@ export default class ScopeVisitor extends AstVisitor {
     this.blockStack.push(b);
     b.parentFunction = this.functionStack[this.functionStack.length - 1];
     this.functionStack[this.functionStack.length - 1].registerBlock(b);
+
+    b.statements.forEach((stmt) => {
+      if (stmt instanceof FuncCall) {
+        stmt.copyReturnValues = CopyReturnValues.Zero;
+      }
+    });
   }
 
   leaveBlock(b: Block): void {
