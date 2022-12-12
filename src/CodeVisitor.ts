@@ -1,6 +1,6 @@
 import AstVisitor from "./AstVisitor.js";
 import Function from "./ast/Function.js";
-import FuncCall from "./ast/FuncCall.js";
+import FuncCall, { CopyReturnValues } from "./ast/FuncCall.js";
 import Variable from "./ast/Variable.js";
 import NumberNode from "./ast/NumberNode.js";
 import BinaryOp, { Operators } from "./ast/BinaryOp.js";
@@ -14,6 +14,7 @@ import IfStatement from "./ast/IfStatement.js";
 import UnaryOp, { Operators as UnaryOperators } from "./ast/UnaryOp.js";
 import BreakStatement from "./ast/BreakStatement.js";
 import ReturnStatement from "./ast/ReturnStatement.js";
+import ExpressionList from "./ast/ExpressionList.js";
 
 enum DynamicTypes {
   NIL = 0,
@@ -93,12 +94,10 @@ export default class CodeVisitor extends AstVisitor {
     // Have to allocate space for the frame, jump there, finish, etc.
     // Pop stuff off the stack too
 
-    // For now, assume that we have no expressions
-
     const funcValueLocation = `(i32.load
       (i32.add
         (global.get $SP)
-        (i32.const ${VAR_SIZE * (f.args.expressions.length + 1) + 4})
+        (i32.const ${VAR_SIZE * (f.args.expressions.length + 2) + 4})
       )
     )`;
 
@@ -106,58 +105,51 @@ export default class CodeVisitor extends AstVisitor {
       ${funcValueLocation}
     )`;
 
-    const staticLink = `(i32.load (i32.add (i32.const 4) ${funcValueLocation}))`;
+    // Our function needs to know how many arguments it was called with, so put that on the stack
 
-    const numParams = `(i32.load
-      (i32.add
-        (i32.const ${this.functionParamDataOffset})
-        (i32.mul (i32.const 4) ${functionIndex})
-      )
-    )`;
-
-    const frameSize = `(i32.add
-      (i32.const ${FRAME_PROLOGUE_SIZE})
-      (i32.mul (i32.const ${VAR_SIZE}) ${numParams})
-    )`;
-
-    this.addInstruction(this.alloc(frameSize));
-
-    const frameBase = `(i32.sub (global.get $HP) ${frameSize})`;
-
-    // Set up static link
-
-    this.addInstruction(`(i32.store ${frameBase} ${staticLink})`);
-
-    // Set up dynamic link
-
-    this.addInstruction(`(i32.store
-      (i32.add (i32.const 4) ${frameBase})
-      (global.get $FP)
-    )`);
-
-    // Copy arguments from stack to frame
-    // TODO  Subtract from SP excess arguments if too many are passed
-    this.addInstruction(
-      `(memory.copy
-        (i32.add (i32.const ${FRAME_PROLOGUE_SIZE}) ${frameBase})
-        (i32.add
-          (global.get $SP)
-          (i32.const ${VAR_SIZE})
-        )
-        (i32.const ${VAR_SIZE * f.args.expressions.length})
-      )`
+    this.putOnStack(
+      DynamicTypes.INT,
+      `(i32.const ${f.args.expressions.length})`
     );
 
-    this.addInstruction(`(global.set $FP ${frameBase})`);
+    this.addInstruction(`(call_indirect
+      (type $basicFunc)
+      ${functionIndex}
+    )`);
 
-    this.addInstruction(`(call_indirect (type $basicFunc) ${functionIndex})`);
-
-    // Check if this is in the right place
-    this.popFromStack(f.args.expressions.length + 1);
-
+    // Set frame pointer back to appropriate place
     this.addInstruction(
       `(global.set $FP (i32.load (i32.add (global.get $FP) (i32.const 4))))`
     );
+
+    // At this point, top of the stack should be a returnarray variable
+
+    // If it's just a plain old function call, discard the return array
+    if (f.copyReturnValues === CopyReturnValues.Zero) {
+      this.popFromStack(1);
+    } else if (f.copyReturnValues === CopyReturnValues.One) {
+      // If it's used in an if statement or while loop, or other plain expression
+      // Then we just extract the first thing from the list
+      const returnObjectMemAddress = `(i32.load
+        (i32.add
+          (global.get $SP)
+          (i32.const ${VAR_SIZE + 4})
+        )
+      )`;
+
+      // Perform a memory copy, always overwriting the return object variable
+      // If one - we just copy the first value.
+      // Otherwise, we copy the entire thing, plus the number of varaibles used
+      // This is in the case where we've evaluated an expression list
+      this.addInstruction(`(memory.copy
+        (i32.add (global.get $SP) (i32.const ${VAR_SIZE}))
+        (i32.add
+          (i32.const 4)
+          ${returnObjectMemAddress}
+        )
+        (i32.const ${VAR_SIZE})
+      )`);
+    }
   }
 
   visitFunction(v: Function): void {
@@ -238,12 +230,183 @@ export default class CodeVisitor extends AstVisitor {
           8 + 8 * v.totalVars
         })))`
       );
+    } else {
+      // Entering a function
+      // We have the number of args given as the top parameter
+      // Now we're vibing
+
+      const argsPassed = `(i32.load (i32.add (i32.const 12) (global.get $SP)))`;
+
+      const frameSize = `(i32.const ${
+        FRAME_PROLOGUE_SIZE + VAR_SIZE * v.totalVars
+      })`;
+
+      this.addInstruction(this.alloc(frameSize));
+
+      const frameBase = `(i32.sub (global.get $HP) ${frameSize})`;
+
+      // Set up static link
+      const funcValueLocation = `(i32.load
+        (i32.add
+          (global.get $SP)
+          (i32.add
+            (i32.mul
+              (i32.const ${VAR_SIZE})
+              ${argsPassed}
+            )
+            (i32.const 20)
+          )
+        )
+      )`;
+      const staticLink = `(i32.load (i32.add (i32.const 4) ${funcValueLocation}))`;
+
+      this.addInstruction(`(i32.store ${frameBase} ${staticLink})`);
+
+      // Set up dynamic link
+
+      this.addInstruction(`(i32.store
+        (i32.add (i32.const 4) ${frameBase})
+        (global.get $FP)
+      )`);
+
+      // Set frame pointer
+      this.addInstruction(`(global.set $FP ${frameBase})`);
+
+      // Copy arguments from stack to frame
+      for (let x = 0; x < v.parameters.length; x++) {
+        const argBase = `(i32.add
+          (global.get $SP)
+          (i32.add
+            (i32.mul (i32.const ${VAR_SIZE}) ${argsPassed})
+            (i32.const ${VAR_SIZE})
+          )
+        )`;
+        const curArgLocation = `(i32.sub ${argBase} (i32.const ${
+          x * VAR_SIZE
+        }))`;
+
+        const finalArgLocation = `(i32.add (global.get $SP) (i32.const ${
+          2 * VAR_SIZE
+        }))`;
+
+        const returnArrayLocation = `(i32.load (i32.add ${finalArgLocation} (i32.const 4)))`;
+
+        const storeLocation = `(i32.add
+          (global.get $FP)
+          (i32.const ${FRAME_PROLOGUE_SIZE + x * VAR_SIZE})
+        )`;
+
+        const expectedCopy = `(memory.copy
+          ${storeLocation}
+          ${curArgLocation}
+          (i32.const ${VAR_SIZE})
+        )`;
+
+        const setToNil = this.setToNil(storeLocation);
+
+        // What parameter are we on
+
+        this.addInstruction(
+          `(i32.lt_s (i32.const ${x}) (i32.sub ${argsPassed} (i32.const 1)))`
+        );
+        // If we aren't on the final arg, or past it
+        this.addInstruction("(if (then");
+        // Just do a simple memcopy
+
+        this.addInstruction(expectedCopy);
+        this.addInstruction(") (else");
+        // We are on the final arg or past it
+        // Is the final arg a return array?
+        this.addInstruction(
+          `(i32.eq (i32.load ${finalArgLocation}) (i32.const ${DynamicTypes.RETURNARRAY}))`
+        );
+
+        this.addInstruction("(if (then");
+        // Final arg is a return array
+        this.addInstruction(
+          `(i32.gt_s (i32.load ${returnArrayLocation}) (i32.const 0))`
+        );
+        // If it has remaining elements
+        this.addInstruction("(if (then");
+        this.addInstruction(`(memory.copy
+          ${storeLocation}
+          (i32.add
+            ${returnArrayLocation}
+            (i32.add
+              (i32.mul
+                (i32.sub
+                  (i32.const ${x + 1})
+                  ${argsPassed}
+                )
+                (i32.const ${VAR_SIZE})
+              )
+              (i32.const 4)
+            )
+          )
+          (i32.const ${VAR_SIZE})
+        )`);
+
+        // Decrement count
+        this.addInstruction(`(i32.store
+          ${returnArrayLocation}
+          (i32.sub
+            (i32.load ${returnArrayLocation})
+            (i32.const 1)
+          )
+        )`);
+        this.addInstruction(") (else");
+        this.addInstruction(setToNil);
+        this.addInstruction("))");
+        this.addInstruction(") (else");
+        // Final arg is not a return array
+        // If we're on the final arg, copy it, otherwise, set it to nil
+        this.addInstruction(`(i32.eq (i32.const ${x + 1}) ${argsPassed})`);
+        this.addInstruction("(if (then");
+        this.addInstruction(expectedCopy);
+        this.addInstruction(") (else");
+        this.addInstruction(setToNil);
+        this.addInstruction("))");
+        this.addInstruction("))");
+        this.addInstruction("))");
+      }
+
+      // Pop from stack all these values
+
+      // VAR_SIZE * 2 since we need to pop the arg count, the args, and the closure
+      this.addInstruction(`(global.set $SP
+        (i32.add
+          (global.get $SP)
+          (i32.add
+            (i32.const ${VAR_SIZE * 2})
+            (i32.mul
+              (i32.const ${VAR_SIZE})
+              ${argsPassed}
+            )
+          )
+        )
+      )`);
     }
   }
 
   leaveFunction(v: Function): void {
     // If we hit this point, we've not returned anything.
-    // Create size 0 return array
+    // Create size 1 return array containing nil
+    // 12 bytes - 4 to indicate size 1, 8 to store nil
+    this.addInstruction(this.alloc(`(i32.const 12)`));
+    this.addInstruction(
+      `(i32.store (i32.sub (global.get $HP) (i32.const 12)) (i32.const 1))`
+    );
+    this.addInstruction(
+      `(i32.store (i32.sub (global.get $HP) (i32.const 8)) (i32.const ${DynamicTypes.NIL}))`
+    );
+    this.addInstruction(
+      `(i32.store (i32.sub (global.get $HP) (i32.const 4)) (i32.const ${DynamicTypes.NIL}))`
+    );
+    // Put the returnarray on the stack
+    this.putOnStack(
+      DynamicTypes.RETURNARRAY,
+      `(i32.sub (global.get $HP) (i32.const 12))`
+    );
     // End function declaration
     this.addInstruction(")");
     this.functionIndexes.pop();
@@ -256,82 +419,103 @@ export default class CodeVisitor extends AstVisitor {
     for (let x = 0; x < a.names.length; ++x) {
       const offset = a.myFunction.getLocal(a.myBlock, a.names[x]);
 
-      const typeLocation = `(i32.add (global.get $FP) (i32.const ${
+      const storeLocation = `(i32.add (global.get $FP) (i32.const ${
         VAR_SIZE * offset + 8
       }))`;
-      const varLocation = `(i32.add (global.get $FP) (i32.const ${
-        VAR_SIZE * offset + 8 + 4
-      }))`;
-      if (x < a.values.expressions.length) {
-        //console.log(offset);
-        // Copy type
-        this.addInstruction(`(i32.store
-          ${typeLocation}
-          (i32.load (i32.add (i32.const ${
-            (a.values.expressions.length - x) * VAR_SIZE
-          }) (global.get $SP))))`);
-        // Copy value
-        this.addInstruction(`(i32.store
-          ${varLocation}
-          (i32.load (i32.add (i32.const ${
-            (a.values.expressions.length - x) * VAR_SIZE + 4
-          }) (global.get $SP))))`);
-      } else {
-        // Set to nil
-        this.addInstruction(`(i32.store
-          ${typeLocation}
-          (i32.const ${DynamicTypes.NIL})
-          )`);
-        this.addInstruction(`(i32.store
-            ${varLocation}
-            (i32.const ${DynamicTypes.NIL})
-            )`);
-      }
+
+      const stackLocation = `(i32.add
+        (i32.const ${(a.values.expressions.length - x) * VAR_SIZE})
+        (global.get $SP)
+      )`;
+
+      this.assignFromExpList(storeLocation, stackLocation, x, a.values);
     }
 
     this.popFromStack(a.values.expressions.length);
+  }
+
+  assignFromExpList(
+    storeLocation: string,
+    fetchLocation: string,
+    varIndex: number,
+    expList: ExpressionList
+  ) {
+    if (
+      varIndex <
+      expList.expressions.length - (expList.lastExprIsFunc() ? 1 : 0)
+    ) {
+      this.addInstruction(`(memory.copy
+        ${storeLocation}
+        ${fetchLocation}
+        (i32.const ${VAR_SIZE})
+      )`);
+    } else {
+      const setToNil = this.setToNil(storeLocation);
+      if (!expList.lastExprIsFunc()) {
+        this.addInstruction(setToNil);
+      } else {
+        const returnArrayLocation = `(i32.load
+          (i32.add
+            (global.get $SP)
+            (i32.const 12)
+          )
+        )`;
+
+        this.addInstruction(
+          `(i32.gt_s (i32.load ${returnArrayLocation}) (i32.const 0))`
+        );
+        this.addInstruction(`(if
+          (then
+            (memory.copy
+              ${storeLocation}
+              (i32.add
+                (i32.const ${
+                  4 + VAR_SIZE * (varIndex - expList.expressions.length + 1)
+                })
+                ${returnArrayLocation}
+              )
+              (i32.const ${VAR_SIZE})
+            )
+            (i32.store
+              ${returnArrayLocation}
+              (i32.sub
+                (i32.load ${returnArrayLocation})
+                (i32.const 1)
+              )
+            )
+          )
+          (else
+            ${setToNil}
+          )
+        )`);
+      }
+    }
   }
 
   leaveAssignment(a: Assignment): void {
     // For something like a, b = 1, 2
     // Stack is set up: 8 bytes for 1,
     // 8 bytes for 2,
-    // 4 bytes for mem location of b,
-    // 4 bytes for mem location of a
+    // 8 bytes for mem location of b,
+    // 8 bytes for mem location of a
 
     const expressionSize = a.values.expressions.length * VAR_SIZE;
 
     for (let x = 0; x < a.variables.length; ++x) {
-      const writeTypeTo = `(i32.load (i32.add (global.get $SP) (i32.const ${
-        8 + expressionSize + (a.variables.length - x - 1) * VAR_SIZE + 4
-      })))`;
-      const writeValueTo = `(i32.add (i32.const 4) ${writeTypeTo})`;
+      const storeLocation = `(i32.load
+        (i32.add
+          (global.get $SP)
+          (i32.const ${
+            8 + expressionSize + (a.variables.length - x - 1) * VAR_SIZE + 4
+          })
+        )
+      )`;
+      const stackLocation = `(i32.add
+        (i32.const ${8 + (a.values.expressions.length - x - 1) * VAR_SIZE})
+        (global.get $SP)
+      )`;
 
-      if (x < a.values.expressions.length) {
-        //console.log(offset);
-        // Copy type
-        this.addInstruction(`(i32.store
-          ${writeTypeTo}
-          (i32.load (i32.add (i32.const ${
-            8 + (a.values.expressions.length - x - 1) * VAR_SIZE
-          }) (global.get $SP))))`);
-        // Copy value
-        this.addInstruction(`(i32.store
-          ${writeValueTo}
-          (i32.load (i32.add (i32.const ${
-            8 + 4 + (a.values.expressions.length - x - 1) * VAR_SIZE
-          }) (global.get $SP))))`);
-      } else {
-        // Set to nil
-        this.addInstruction(`(i32.store
-          ${writeTypeTo}
-          (i32.const ${DynamicTypes.NIL})
-          )`);
-        this.addInstruction(`(i32.store
-            ${writeValueTo}
-            (i32.const ${DynamicTypes.NIL})
-            )`);
-      }
+      this.assignFromExpList(storeLocation, stackLocation, x, a.values);
     }
 
     this.popFromStack(a.variables.length + a.values.expressions.length);
@@ -414,6 +598,73 @@ export default class CodeVisitor extends AstVisitor {
   }
 
   leaveReturnStatement(v: ReturnStatement): void {
+    // Assume for now that we have all the args on the stack, based on the number of expressions evaluated
+    // Allocate space for a returnarray - contains size, then vars
+    const funcResultLocation = `(i32.load
+      (i32.add
+        (global.get $SP)
+        (i32.const 12)
+      )
+    )`;
+
+    let returnObjectSize = `(i32.const ${
+      4 + v.expressions.expressions.length * VAR_SIZE
+    })`;
+
+    if (v.expressions.lastExprIsFunc()) {
+      returnObjectSize = `(i32.add
+        (i32.const ${4 + (v.expressions.expressions.length - 1) * VAR_SIZE})
+        (i32.mul (i32.const ${VAR_SIZE}) (i32.load ${funcResultLocation}))
+      )`;
+    }
+    this.addInstruction(this.alloc(returnObjectSize));
+    const returnObjectBase = `(i32.sub (global.get $HP) ${returnObjectSize})`;
+    this.addInstruction(`(global.set $temp ${returnObjectBase})`);
+
+    let numResults = `(i32.const ${v.expressions.expressions.length})`;
+    // Add size to object
+    if (v.expressions.lastExprIsFunc()) {
+      numResults = `(i32.add (i32.load ${funcResultLocation}) (i32.const ${
+        v.expressions.expressions.length - 1
+      }))`;
+    }
+    this.addInstruction(`(i32.store ${returnObjectBase} ${numResults})`);
+
+    // Copy parameters into heap
+    // Can't do with one big memory copy, since they're placed on the stack in reverse order.
+
+    for (
+      let x = 0;
+      x <
+      v.expressions.expressions.length -
+        (v.expressions.lastExprIsFunc() ? 1 : 0);
+      x++
+    ) {
+      this.addInstruction(
+        `(memory.copy
+          (i32.add (i32.const ${4 + x * VAR_SIZE}) ${returnObjectBase})
+          (i32.add (global.get $SP) (i32.const ${
+            VAR_SIZE * (v.expressions.expressions.length - x)
+          }))
+          (i32.const ${VAR_SIZE})
+        )`
+      );
+    }
+
+    if (v.expressions.lastExprIsFunc()) {
+      this.addInstruction(
+        `(memory.copy
+          (i32.add (i32.const ${
+            4 + (v.expressions.expressions.length - 1) * VAR_SIZE
+          }) ${returnObjectBase})
+          (i32.add ${funcResultLocation} (i32.const 4))
+          (i32.mul (i32.const ${VAR_SIZE}) (i32.load ${funcResultLocation}))
+        )`
+      );
+    }
+
+    this.popFromStack(v.expressions.expressions.length);
+    this.putOnStack(DynamicTypes.RETURNARRAY, `(global.get $temp)`);
     this.addInstruction(`return`);
   }
 
@@ -644,5 +895,13 @@ export default class CodeVisitor extends AstVisitor {
     for (let x = 0; x < n; x++) {
       this.addInstruction(`i32.load`);
     }
+  }
+
+  setToNil(location: string) {
+    return `(memory.fill
+      ${location}
+      (i32.const ${DynamicTypes.NIL})
+      (i32.const ${VAR_SIZE})
+    )`;
   }
 }

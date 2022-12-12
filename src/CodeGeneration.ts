@@ -18,6 +18,7 @@ export default class CodeGeneration {
     (global $HP (mut i32) (i32.const ${offset}))
     (global $FP (mut i32) (i32.const ${offset}))
     (global $SP (mut i32) (i32.const 65528))
+    (global $temp (mut i32) (i32.const 0))
     (table ${functions.length} funcref)
     (elem (i32.const 0) ${functions.reduce(
       (acc, fn) => acc + `$f${fn.index} `,
@@ -32,7 +33,7 @@ export default class CodeGeneration {
     ast.accept(codeVisitor);
 
     const funcs = codeVisitor.functionWasms.reduce(
-      (acc, cur) => acc + "\n" + cur,
+      (acc, cur) => acc + "\n" + this.prettify(cur),
       ""
     );
 
@@ -55,5 +56,17 @@ export default class CodeGeneration {
       stringData,
       offset: stringLocation,
     };
+  }
+
+  prettify(functionWasm: string) {
+    let toReturn: string = "";
+    let indent = 0;
+    functionWasm.split("\n").forEach((line) => {
+      const noWS = line.trim();
+      toReturn += " ".repeat(indent) + noWS + "\n";
+      indent += (noWS.match(/\(/g) || []).length;
+      indent -= (noWS.match(/\)/g) || []).length;
+    });
+    return toReturn;
   }
 }

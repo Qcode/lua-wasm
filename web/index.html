@@ -43,6 +43,8 @@
 									const string = new TextDecoder("utf8").decode(bytes);
 									append(string);
 									break;
+								default:
+									append(`Attempt to read bad memory type: ${type}`);
 							}
 						})
 					},

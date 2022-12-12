@@ -1,5 +1,5 @@
-import Assignment from "./ast/Assignment.js";
 import Block from "./ast/Block.js";
+import ExpressionList from "./ast/ExpressionList.js";
 import FuncCall, { CopyReturnValues } from "./ast/FuncCall.js";
 import Function from "./ast/Function.js";
 import LocalAssignment from "./ast/LocalAssignment.js";
@@ -17,27 +17,6 @@ export default class ScopeVisitor extends AstVisitor {
 
   constructor() {
     super();
-  }
-
-  visitLocalAssignment(a: LocalAssignment): void {
-    const finalVal = a.values.expressions[a.values.expressions.length - 1];
-    if (a.values.expressions.length > 1 && finalVal instanceof FuncCall) {
-      finalVal.copyReturnValues = CopyReturnValues.Many;
-    }
-  }
-
-  visitAssignment(a: Assignment): void {
-    const finalVal = a.values.expressions[a.values.expressions.length - 1];
-    if (a.values.expressions.length > 1 && finalVal instanceof FuncCall) {
-      finalVal.copyReturnValues = CopyReturnValues.Many;
-    }
-  }
-
-  visitFuncCall(f: FuncCall): void {
-    const finalVal = f.args.expressions[f.args.expressions.length - 1];
-    if (f.args.expressions.length > 1 && finalVal instanceof FuncCall) {
-      finalVal.copyReturnValues = CopyReturnValues.Many;
-    }
   }
 
   leaveLocalAssignment(a: LocalAssignment): void {

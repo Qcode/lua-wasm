@@ -193,7 +193,7 @@ export default class AntlrVisitor {
     if (ctx instanceof LuaParser.BlockContext) {
       const lastStmt = ctx.laststat() ? ctx.laststat().accept(this) : null;
       const bodyStmts = (
-        ctx.laststat() ? ctx.children.slice(0, -1) : ctx.children
+        (ctx.laststat() ? ctx.children.slice(0, -1) : ctx.children) || []
       ).map((child) => child.accept(this));
       return new Block(bodyStmts, lastStmt);
     }
@@ -224,6 +224,23 @@ export default class AntlrVisitor {
         : results;
     }
 
+    if (ctx instanceof LuaParser.NameAndArgsContext) {
+      return ctx.args().accept(this);
+    }
+
+    if (ctx instanceof LuaParser.ArgsContext) {
+      if (ctx.explist()) {
+        return ctx.explist().accept(this);
+      } else if (ctx.tableconstructor()) {
+        return new ExpressionList([ctx.tableconstructor().accept(this)]);
+      } else if (ctx.string()) {
+        return new ExpressionList([ctx.string().accept(this)]);
+      } else {
+        // Must be empty
+        return new ExpressionList([]);
+      }
+    }
+
     if (ctx instanceof LuaParser.StatLocalAssignmentContext) {
       return new LocalAssignment(
         ctx.getChild(1).accept(this),
@@ -244,13 +261,18 @@ export default class AntlrVisitor {
       const functionCallNode = ctx.functioncall();
       // TODO: Something like f returns another function, f()() - multiple args, need to nest FuncCall Objects
       // nameAndArgs => args => explist
-      const myArgs = functionCallNode.nameAndArgs()[0].args();
-      return new FuncCall(
+      let toReturn = new FuncCall(
         functionCallNode.varOrExp().accept(this),
-        myArgs.explist()
-          ? myArgs.explist().accept(this)
-          : new ExpressionList([])
+        functionCallNode.getChild(1).accept(this)
       );
+      for (let x = 2; x < functionCallNode.getChildCount(); x++) {
+        toReturn = new FuncCall(
+          toReturn,
+          functionCallNode.getChild(x).accept(this)
+        );
+      }
+
+      return toReturn;
     }
 
     if (ctx instanceof LuaParser.ParlistContext) {
@@ -312,6 +334,16 @@ export default class AntlrVisitor {
       if (ctx.getChildCount() == 1) {
         return ctx.varOrExp().accept(this);
       } else {
+        let toReturn = new FuncCall(
+          ctx.varOrExp().accept(this),
+          ctx.getChild(1).accept(this)
+        );
+
+        for (let x = 2; x < ctx.getChildCount(); x++) {
+          toReturn = new FuncCall(toReturn, ctx.getChild(x).accept(this));
+        }
+
+        return toReturn;
         // Function call
       }
     }
