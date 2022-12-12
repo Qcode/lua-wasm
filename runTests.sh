@@ -16,7 +16,13 @@ for testFile in testPrograms/*.lua; do
 
     diff $stem.expected $stem.actual
     if [ $? -ne 0 ]; then
+        printf '\033[0;31m'
+        echo "----------------------"
         echo "Test failed: $testFile"
+        echo "----------------------"
+    else
+        printf '\033[0;32m'
+        echo "Test passed: $testFile"
     fi
 done
 

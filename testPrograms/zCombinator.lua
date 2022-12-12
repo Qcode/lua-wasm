@@ -7,8 +7,6 @@ local Z = function (le)
     return a(a)
 end
 
-
--- non-recursive factorial
 local F = function (f)
     return function (n)
         if n == 0 then return 1

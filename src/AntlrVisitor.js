@@ -108,6 +108,50 @@ export default class AntlrVisitor {
       ]);
     }
 
+    if (ctx instanceof LuaParser.StatGenericForContext) {
+      const fName = uuid();
+      const sName = uuid();
+      const varName = uuid();
+
+      const nameList = ctx.namelist().accept(this);
+      return new Block([
+        new LocalAssignment(
+          [fName, sName, varName],
+          ctx.explist().accept(this)
+        ),
+        new WhileStatement(
+          new BooleanNode(true),
+          new Block([
+            new LocalAssignment(
+              nameList,
+              new ExpressionList([
+                new FuncCall(
+                  new Variable(fName),
+                  new ExpressionList([
+                    new Variable(sName),
+                    new Variable(varName),
+                  ])
+                ),
+              ])
+            ),
+            new IfStatement(
+              new BinaryOp(
+                new Variable(nameList[0]),
+                new NilNode(),
+                BinaryOperators.Equality
+              ),
+              new Block([], new BreakStatement())
+            ),
+            new Assignment(
+              [new Variable(varName)],
+              new ExpressionList([new Variable(nameList[0])])
+            ),
+            ctx.block().accept(this),
+          ])
+        ),
+      ]);
+    }
+
     if (ctx instanceof LuaParser.StatRepeatContext) {
       return new Block([
         ctx.block().accept(this),

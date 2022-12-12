@@ -176,15 +176,6 @@ export default class LuaListener extends antlr4.tree.ParseTreeListener {
 	}
 
 
-	// Enter a parse tree produced by LuaParser#continueStat.
-	enterContinueStat(ctx) {
-	}
-
-	// Exit a parse tree produced by LuaParser#continueStat.
-	exitContinueStat(ctx) {
-	}
-
-
 	// Enter a parse tree produced by LuaParser#label.
 	enterLabel(ctx) {
 	}
