@@ -1,11 +1,111 @@
 import Function from "./ast/Function";
-import CodeVisitor from "./CodeVisitor.js";
+import CodeVisitor, { DynamicTypes } from "./CodeVisitor.js";
 
 export default class CodeGeneration {
   stringLocationMap: Map<string, number>;
 
   constructor() {
     this.stringLocationMap = new Map();
+  }
+
+  nearestPrime() {
+    // Given an a number, finds the next highest prime
+    // cd = candidate divisor
+    return `(func $nearestPrime (param $n i32) (result i32)
+      (local $cd i32)
+      (loop $notPrime
+        ;; Increment n by 1
+        (local.set $n (i32.add (local.get $n) (i32.const 1)))
+        ;; Reset candidate divisor
+        (local.set $cd (i32.const 1))
+        (block $foundPrime
+          (loop $nextCd
+            (local.set $cd (i32.add (local.get $cd) (i32.const 1)))
+            ;; If our candidate divisor divides evenly into n, then n is composite
+            (i32.rem_s (local.get $n) (local.get $cd))
+            i32.const 0
+            i32.eq
+            ;; So go to the next n
+            br_if $notPrime
+
+            ;; If candidate divisor is n-1, we've checked all possible divisors, we're good
+            (i32.eq (local.get $cd) (i32.sub (local.get $n) (i32.const 1)))
+            br_if $foundPrime
+            ;; Otherwise, look at next candidate divisor
+            br $nextCd
+          )
+        )
+        (return (local.get $n))
+      )
+      ;; Cannot get here
+      unreachable
+    )`;
+  }
+
+  equals() {
+    // If the types are not the same
+    return `(func $equals (param $lhs i32) (param $rhs i32) (result i32)
+    (local $lhsStringPtr i32) (local $rhsStringPtr i32) (local $i i32)
+
+      ;; If the types are different, return false
+      (i32.ne
+        (i32.load (local.get $lhs))
+        (i32.load (local.get $rhs))
+      )
+      (if (then (return (i32.const 0))))
+      ;; If the types not a string, just compare the pointer/int/bool/nil value
+      (i32.ne
+        (i32.load (local.get $lhs))
+        (i32.const ${DynamicTypes.STRING})
+      )
+      (if (then (return
+        (i32.eq
+          (i32.load (i32.add (i32.const 4) (local.get $lhs)))
+          (i32.load (i32.add (i32.const 4) (local.get $rhs)))
+        )
+      )))
+      ;; Otherwise, must compare strings
+      (local.set $lhsStringPtr (i32.load (i32.add (i32.const 4) (local.get $lhs))))
+      (local.set $rhsStringPtr (i32.load (i32.add (i32.const 4) (local.get $rhs))))
+      ;; If the strings are of different length, return false
+      (i32.ne (i32.load (local.get $lhsStringPtr)) (i32.load (local.get $rhsStringPtr)))
+      (if (then
+        (return (i32.const 0))
+      ))
+
+      (local.set $i (i32.const 4))
+      ;; Must compare each of the lengths
+      (loop
+        (i32.ne
+          (i32.load
+            (i32.add
+              (local.get $lhsStringPtr)
+              (local.get $i)
+            )
+          )
+          (i32.load
+            (i32.add
+              (local.get $rhsStringPtr)
+              (local.get $i)
+            )
+          )
+        )
+        ;; If the characters aren't the same return 0
+        (if (then (return (i32.const 0))))
+        ;; Increment i
+        (local.set $i (i32.add (local.get $i) (i32.const 4)))
+        ;; Loop if i less than string length
+        (br_if
+          0
+          (i32.lt_s
+            (i32.sub (local.get $i) (i32.const 4))
+            (i32.load (local.get $lhsStringPtr))
+          )
+        )
+      )
+
+      (return (i32.const 1))
+    )`;
   }
 
   generateCode(ast: Function, functions: Function[], strings: string[]) {
@@ -19,6 +119,8 @@ export default class CodeGeneration {
     (global $FP (mut i32) (i32.const ${offset}))
     (global $SP (mut i32) (i32.const 65528))
     (global $temp (mut i32) (i32.const 0))
+    ${this.equals()}
+    ${this.nearestPrime()}
     (table ${functions.length} funcref)
     (elem (i32.const 0) ${functions.reduce(
       (acc, fn) => acc + `$f${fn.index} `,

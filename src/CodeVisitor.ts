@@ -16,7 +16,7 @@ import BreakStatement from "./ast/BreakStatement.js";
 import ReturnStatement from "./ast/ReturnStatement.js";
 import ExpressionList from "./ast/ExpressionList.js";
 
-enum DynamicTypes {
+export enum DynamicTypes {
   NIL = 0,
   INT = 1,
   FLOAT = 2,
@@ -711,8 +711,60 @@ export default class CodeVisitor extends AstVisitor {
     }
 
     if (b.operator === Operators.Concatenation) {
+      // Assume we're dealing with two strings, otherwise invalid
       // Get lengths of the strings
-      this.addInstruction("");
+      this.popFromStack(2);
+      const firstStringMemLocation = `(i32.load (i32.add (global.get $SP) (i32.const 4)))`;
+      const secondStringMemLocation = `(i32.load (i32.sub (global.get $SP) (i32.const 4)))`;
+      const firstStringCharacters = `(i32.load ${firstStringMemLocation})`;
+      const secondStringCharacters = `(i32.load ${secondStringMemLocation})`;
+
+      const newStringCharacters = `(i32.add ${firstStringCharacters} ${secondStringCharacters})`;
+
+      // 4 bytes for size at the beginning, plus size of the previous two strings
+      // Plus, alignment
+
+      const unAlignedSize = `(i32.add
+        (i32.const 4)
+        (i32.add ${firstStringCharacters} ${secondStringCharacters})
+      )`;
+
+      const newStringSize = `(i32.add ${unAlignedSize} (i32.sub (i32.const 4) (i32.rem_s ${unAlignedSize} (i32.const 4))))`;
+      this.addInstruction(this.alloc(newStringSize));
+
+      const stringBase = `(i32.sub (global.get $HP) ${newStringSize})`;
+      this.addInstruction(`(i32.store ${stringBase} ${newStringCharacters})`);
+      this.addInstruction(`(memory.copy
+        (i32.add (i32.const 4) ${stringBase})
+        (i32.add (i32.const 4) ${firstStringMemLocation})
+        ${firstStringCharacters}
+      )`);
+      this.addInstruction(`(memory.copy
+        (i32.add
+          ${firstStringCharacters}
+          (i32.add
+            (i32.const 4)
+            ${stringBase}
+          )
+        )
+        (i32.add (i32.const 4) ${secondStringMemLocation})
+        ${secondStringCharacters}
+      )`);
+      this.putOnStack(DynamicTypes.STRING, stringBase);
+      return;
+    }
+
+    if (
+      b.operator === Operators.Equality ||
+      b.operator === Operators.Inequality
+    ) {
+      this.popFromStack(2);
+      let call = `(call $equals (global.get $SP) (i32.sub (global.get $SP) (i32.const ${VAR_SIZE})))`;
+      this.putOnStack(
+        DynamicTypes.BOOL,
+        b.operator === Operators.Equality ? call : this.negate(call)
+      );
+      return;
     }
 
     const instructionTypeLookUp = {
@@ -726,11 +778,6 @@ export default class CodeVisitor extends AstVisitor {
       [Operators.Mod]: { instruction: "i32.rem_s", type: DynamicTypes.INT },
       [Operators.Lt]: { instruction: "i32.lt_s", type: DynamicTypes.BOOL },
       [Operators.Gt]: { instruction: "i32.gt_s", type: DynamicTypes.BOOL },
-      [Operators.Equality]: { instruction: "i32.eq", type: DynamicTypes.BOOL },
-      [Operators.Inequality]: {
-        instruction: "i32.ne",
-        type: DynamicTypes.BOOL,
-      },
       [Operators.Geq]: { instruction: "i32.ge_s", type: DynamicTypes.BOOL },
       [Operators.Leq]: { instruction: "i32.le_s", type: DynamicTypes.BOOL },
     };
@@ -876,11 +923,11 @@ export default class CodeVisitor extends AstVisitor {
   }
 
   putOnStack(type: DynamicTypes, value: string) {
-    this.addInstruction(`(i32.store (global.get $SP) (i32.const ${type}))`);
     // Store number
     this.addInstruction(
       `(i32.store (i32.add (i32.const 4) (global.get $SP)) ${value})`
     );
+    this.addInstruction(`(i32.store (global.get $SP) (i32.const ${type}))`);
     this.pushSP();
   }
 

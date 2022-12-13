@@ -16,6 +16,8 @@ import UnaryOp from "./ast/UnaryOp";
 import WhileStatement from "./ast/WhileStatement";
 import LocalAssignment from "./ast/LocalAssignment";
 import ExpressionList from "./ast/ExpressionList";
+import TableNode from "./ast/TableNode";
+import FieldAccess from "./ast/FieldAccess";
 
 export default abstract class AstVisitor {
   visitAssignment(a: Assignment) {}
@@ -65,4 +67,9 @@ export default abstract class AstVisitor {
   visitWhileStatement(v: WhileStatement) {}
   intermediateWhileStatement(v: WhileStatement) {}
   leaveWhileStatement(v: WhileStatement) {}
+
+  visitTableNode(v: TableNode) {}
+
+  visitFieldAccess(v: FieldAccess) {}
+  leaveFieldAccess(v: FieldAccess) {}
 }

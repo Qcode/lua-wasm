@@ -1,10 +1,11 @@
 local function f()
-    return 1
+    return 1, 2
 end
 
 local function g()
     return f()
 end
 
-local result = g()
-print(result)
+local a, b = g()
+print(a)
+print(b)
