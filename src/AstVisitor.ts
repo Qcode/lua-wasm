@@ -69,6 +69,9 @@ export default abstract class AstVisitor {
   leaveWhileStatement(v: WhileStatement) {}
 
   visitTableNode(v: TableNode) {}
+  visitTableNodePostListElements(v: TableNode) {}
+  visitTableNodePostKVPElement(v: TableNode) {}
+  leaveTableNode(v: TableNode) {}
 
   visitFieldAccess(v: FieldAccess) {}
   leaveFieldAccess(v: FieldAccess) {}

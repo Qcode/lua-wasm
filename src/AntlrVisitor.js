@@ -17,6 +17,8 @@ import LocalAssignment from "./ast/LocalAssignment.js";
 import BreakStatement from "./ast/BreakStatement.js";
 import { v4 as uuid } from "uuid";
 import ExpressionList from "./ast/ExpressionList.js";
+import TableNode from "./ast/TableNode.js";
+import FieldAccess from "./ast/FieldAccess.js";
 
 // Transforms the tree from just being an ANTLR parse tree into an AST
 // defined by my own classes which is easier to manipulate
@@ -25,6 +27,36 @@ export default class AntlrVisitor {
     if (!ctx) {
       return;
     }
+    if (ctx instanceof LuaParser.ExpTableCtorContext) {
+      return ctx.tableconstructor().accept(this);
+    }
+
+    if (ctx instanceof LuaParser.TableconstructorContext) {
+      if (!ctx.fieldlist()) {
+        return new TableNode([], new Map(), null);
+      }
+      const listElements = [];
+      const initializeWith = new Map();
+      let remainingListElements = null
+      const fieldList = ctx.fieldlist();
+      for (let x = 0; x < fieldList.getChildCount(); x++) {
+        const field = fieldList.getChild(x);
+        if (field instanceof LuaParser.FieldContext) {
+          if (field.getChild(0).getText() === "[") {
+            initializeWith.set(field.getChild(1).accept(this)) = field.getChild(4).accept(this);
+          } else if (field.getChildCount() === 1) {
+            listElements.push(field.getChild(0).accept(this))
+          } else {
+            initializeWith.set(new StringNode(field.NAME().getText()), field.getChild(2).accept(this));
+          }
+        }
+      }
+      if (listElements[listElements.length - 1] instanceof FuncCall) {
+        remainingListElements = listElements.pop();
+      }
+      return new TableNode(listElements, initializeWith, remainingListElements);
+    }
+
     if (ctx instanceof LuaParser.StatNumericForContext) {
       // Transform the Numeric For loop into a while loop as specified in
       // the Lua 5.3 reference manual
@@ -243,7 +275,23 @@ export default class AntlrVisitor {
     }
 
     if (ctx instanceof LuaParser.VarContext) {
-      return new Variable(ctx.getText());
+      if (!ctx.varSuffix()) return new Variable(ctx.getText());
+      let baseExpr = ctx.NAME() ? new Variable(ctx.NAME().getText()) : new ctx.exp().accept(this);
+      let startingSuffixIndex = ctx.NAME() ? 1 : 3;
+      for (let x = startingSuffixIndex; x < ctx.getChildCount(); x++) {
+        const varSuffix = ctx.getChild(x);
+        let y = 0;
+        while (varSuffix.getChild(y) instanceof LuaParser.NameAndArgsContext) {
+          baseExpr = new FuncCall(baseExpr, varSuffix.getChild(y).args().accept(this));
+          y += 1;
+        }
+        if (varSuffix.getChild(y).getText() === '[') {
+          baseExpr = new FieldAccess(baseExpr, varSuffix.exp().accept(this));
+        } else {
+          baseExpr = new FieldAccess(baseExpr, new StringNode(varSuffix.NAME().getText()));
+        }
+      }
+      return baseExpr;
     }
 
     if (ctx instanceof LuaParser.NamelistContext) {

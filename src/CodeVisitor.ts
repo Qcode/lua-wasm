@@ -15,6 +15,7 @@ import UnaryOp, { Operators as UnaryOperators } from "./ast/UnaryOp.js";
 import BreakStatement from "./ast/BreakStatement.js";
 import ReturnStatement from "./ast/ReturnStatement.js";
 import ExpressionList from "./ast/ExpressionList.js";
+import TableNode from "./ast/TableNode.js";
 
 export enum DynamicTypes {
   NIL = 0,
@@ -28,12 +29,13 @@ export enum DynamicTypes {
   POINTER = 8,
 }
 
-// Variables contain a 4 byte type and a 4 byte value
-const VAR_SIZE = 8;
-
-// 4 bytes for dynamic link,
-// 4 bytes for static link
-const FRAME_PROLOGUE_SIZE = 8;
+import {
+  VAR_SIZE,
+  FRAME_PROLOGUE_SIZE,
+  HASH_PROLOGUE_SIZE,
+  HASH_KVP_SIZE,
+} from "./constants.js";
+import FieldAccess from "./ast/FieldAccess.js";
 
 export default class CodeVisitor extends AstVisitor {
   functions: Function[];
@@ -81,6 +83,7 @@ export default class CodeVisitor extends AstVisitor {
   leaveFuncCall(f: FuncCall): void {
     // Hardcode printing for now, should be stored in global table somewhere probably
     // So that they can reassign, etc.
+    //console.error(f);
     if (f.theFunc instanceof Variable && f.theFunc.varName === "print") {
       this.addInstruction(
         `(global.set $SP (i32.add (global.get $SP) (i32.const ${VAR_SIZE})))`
@@ -158,7 +161,7 @@ export default class CodeVisitor extends AstVisitor {
 
       // 4 bytes for function index
       // 4 bytes for environment pointer
-      this.addInstruction(this.alloc("(i32.const 8)"));
+      this.alloc("(i32.const 8)");
 
       // Store function pointer
       this.addInstruction(
@@ -241,7 +244,7 @@ export default class CodeVisitor extends AstVisitor {
         FRAME_PROLOGUE_SIZE + VAR_SIZE * v.totalVars
       })`;
 
-      this.addInstruction(this.alloc(frameSize));
+      this.alloc(frameSize);
 
       const frameBase = `(i32.sub (global.get $HP) ${frameSize})`;
 
@@ -392,7 +395,7 @@ export default class CodeVisitor extends AstVisitor {
     // If we hit this point, we've not returned anything.
     // Create size 1 return array containing nil
     // 12 bytes - 4 to indicate size 1, 8 to store nil
-    this.addInstruction(this.alloc(`(i32.const 12)`));
+    this.alloc(`(i32.const 12)`);
     this.addInstruction(
       `(i32.store (i32.sub (global.get $HP) (i32.const 12)) (i32.const 1))`
     );
@@ -501,12 +504,12 @@ export default class CodeVisitor extends AstVisitor {
 
     const expressionSize = a.values.expressions.length * VAR_SIZE;
 
-    for (let x = 0; x < a.variables.length; ++x) {
+    for (let x = 0; x < a.lvalues.length; ++x) {
       const storeLocation = `(i32.load
         (i32.add
           (global.get $SP)
           (i32.const ${
-            8 + expressionSize + (a.variables.length - x - 1) * VAR_SIZE + 4
+            8 + expressionSize + (a.lvalues.length - x - 1) * VAR_SIZE + 4
           })
         )
       )`;
@@ -518,7 +521,7 @@ export default class CodeVisitor extends AstVisitor {
       this.assignFromExpList(storeLocation, stackLocation, x, a.values);
     }
 
-    this.popFromStack(a.variables.length + a.values.expressions.length);
+    this.popFromStack(a.lvalues.length + a.values.expressions.length);
   }
 
   visitVariable(v: Variable): void {
@@ -617,7 +620,7 @@ export default class CodeVisitor extends AstVisitor {
         (i32.mul (i32.const ${VAR_SIZE}) (i32.load ${funcResultLocation}))
       )`;
     }
-    this.addInstruction(this.alloc(returnObjectSize));
+    this.alloc(returnObjectSize);
     const returnObjectBase = `(i32.sub (global.get $HP) ${returnObjectSize})`;
     this.addInstruction(`(global.set $temp ${returnObjectBase})`);
 
@@ -730,7 +733,7 @@ export default class CodeVisitor extends AstVisitor {
       )`;
 
       const newStringSize = `(i32.add ${unAlignedSize} (i32.sub (i32.const 4) (i32.rem_s ${unAlignedSize} (i32.const 4))))`;
-      this.addInstruction(this.alloc(newStringSize));
+      this.alloc(newStringSize);
 
       const stringBase = `(i32.sub (global.get $HP) ${newStringSize})`;
       this.addInstruction(`(i32.store ${stringBase} ${newStringCharacters})`);
@@ -815,6 +818,12 @@ export default class CodeVisitor extends AstVisitor {
       this.addInstruction(
         `(i32.store (i32.add (global.get $SP) (i32.const ${VAR_SIZE})) (i32.const ${DynamicTypes.BOOL}))`
       );
+    } else if (v.operator === UnaryOperators.Negation) {
+      // Assume dealing with an int
+      this.addInstruction(`(i32.store
+        (i32.add (global.get $SP) (i32.const 12))
+        (i32.sub (i32.const 0) (i32.load (i32.add (global.get $SP) (i32.const 12))))
+      )`);
     }
   }
 
@@ -914,12 +923,7 @@ export default class CodeVisitor extends AstVisitor {
   }
 
   alloc(size: string) {
-    return `(global.set $HP
-      (i32.add
-        (global.get $HP)
-        ${size}
-      )
-    )`;
+    this.addInstruction(`(call $alloc ${size})`);
   }
 
   putOnStack(type: DynamicTypes, value: string) {
@@ -950,5 +954,179 @@ export default class CodeVisitor extends AstVisitor {
       (i32.const ${DynamicTypes.NIL})
       (i32.const ${VAR_SIZE})
     )`;
+  }
+
+  visitTableNode(v: TableNode): void {
+    const startingArrayCapacity = 11;
+
+    const tableBytes = `(i32.const ${HASH_PROLOGUE_SIZE})`;
+    const startingHashBytes = `(i32.const ${
+      HASH_KVP_SIZE * startingArrayCapacity
+    })`;
+    // Create an empty table to be placed on the stack
+    const wholeSize = `(i32.add ${tableBytes} ${startingHashBytes})`;
+    this.alloc(wholeSize);
+
+    const tableBase = `(i32.sub (global.get $HP) ${wholeSize})`;
+    const hashBase = `(i32.sub (global.get $HP) ${startingHashBytes})`;
+    // Store number of elements is zero
+    this.addInstruction(`(i32.store ${tableBase} (i32.const 0))`);
+    this.addInstruction(
+      `(i32.store (i32.add (i32.const 4) ${tableBase}) (i32.const ${startingArrayCapacity}))`
+    );
+    this.addInstruction(
+      `(i32.store (i32.add (i32.const 8) ${tableBase}) ${hashBase})`
+    );
+    this.addInstruction(`(memory.fill
+      ${hashBase}
+      (i32.const 0)
+      ${startingHashBytes}
+    )`);
+    this.putOnStack(DynamicTypes.TABLE, tableBase);
+  }
+
+  visitTableNodePostListElements(v: TableNode): void {
+    // Assuming there's an integer key on the stack
+    const tableLocation = `(i32.add (global.get $SP) (i32.const ${
+      VAR_SIZE * (2 + (v.remainingListElements ? 1 : 0) + v.listElements.length)
+    }))`;
+    // "a", "b", f()
+    // v.listElements.length = 2
+    // stack looks like table, "a", "b", f(), SP
+    for (let x = 0; x < v.listElements.length; x++) {
+      const elementToCopyPtr = `(i32.add (global.get $SP) (i32.const ${
+        VAR_SIZE *
+        (1 + (v.remainingListElements ? 1 : 0) + v.listElements.length - x)
+      }))`;
+      this.putOnStack(DynamicTypes.INT, `(i32.const ${x + 1})`);
+      const intPtr = `(i32.add (global.get $SP) (i32.const ${VAR_SIZE}))`;
+      this.addInstruction(
+        `(call $hashInsert ${tableLocation} ${intPtr} ${elementToCopyPtr})`
+      );
+      this.popFromStack(1);
+    }
+
+    if (v.remainingListElements) {
+      const copiedSoFar = v.listElements.length;
+
+      // return array looks like 2 (size), 2, 3
+      // v.listElements.length = 0
+      //
+
+      const returnArrayBase = `(i32.load
+        (i32.add (global.get $SP) (i32.const 12))
+      )`;
+      this.addInstruction(`(loop
+        (i32.store (global.get $SP) (i32.const ${DynamicTypes.INT}))
+        (i32.store
+          (i32.add (i32.const 4) (global.get $SP))
+          (i32.add
+            (i32.const ${copiedSoFar})
+            (i32.load ${returnArrayBase})
+          )
+        )
+        (call $hashInsert
+          (i32.add
+            (global.get $SP)
+            (i32.const ${VAR_SIZE * (2 + v.listElements.length)})
+          )
+          (global.get $SP)
+          (i32.add
+            (i32.add
+              (i32.const 4)
+              ${returnArrayBase}
+            )
+            (i32.mul
+              (i32.const ${VAR_SIZE})
+              (i32.sub
+                (i32.load ${returnArrayBase})
+                (i32.const 1)
+              )
+            )
+          )
+        )
+        (i32.store ${returnArrayBase}
+          (i32.sub
+            (i32.load ${returnArrayBase})
+            (i32.const 1)
+          )
+        )
+        (br_if 0
+          (i32.ne
+            (i32.load ${returnArrayBase})
+            (i32.const 0)
+          )
+        )
+      )`);
+    }
+
+    this.popFromStack(
+      v.listElements.length + (v.remainingListElements ? 1 : 0)
+    );
+  }
+
+  visitTableNodePostKVPElement(v: TableNode): void {
+    // Stack looks like table, key, value
+    this.popFromStack(2);
+    this.addInstruction(`(call $hashInsert
+      (i32.add (i32.const ${VAR_SIZE}) (global.get $SP))
+      (global.get $SP)
+      (i32.sub (global.get $SP) (i32.const ${VAR_SIZE}))
+    )`);
+  }
+
+  leaveFieldAccess(v: FieldAccess): void {
+    // Stack looks like table, key variable
+    // Want to fetch value from table, put on stack
+
+    // Assume for now that it's a get
+    if (v.get) {
+      this.popFromStack(1);
+      this.addInstruction(`(memory.copy
+        (i32.add (global.get $SP) (i32.const ${VAR_SIZE}))
+        (i32.add
+          (i32.const ${VAR_SIZE})
+          (call $hashSearch
+            (i32.add
+              (global.get $SP)
+              (i32.const ${VAR_SIZE})
+            )
+            (global.get $SP)
+          )
+        )
+        (i32.const ${VAR_SIZE})
+      )`);
+    } else {
+      // Set, want to retrieve a pointer to the location in the table to store the value
+      this.popFromStack(2);
+      const elementsPtr = `(i32.load (i32.add (i32.const 4) (global.get $SP)))`;
+      this.addInstruction(`(i32.store
+        ${elementsPtr}
+        (i32.add
+          (i32.load ${elementsPtr})
+          (i32.const 1)
+        )
+      )`);
+      this.addInstruction(`(call $maybeRehash (global.get $SP))`);
+      const keyLocation = `(i32.sub (global.get $SP) (i32.const ${VAR_SIZE}))`;
+      const kvpLocation = `(call $hashSearch
+        (global.get $SP)
+        ${keyLocation}
+      )`;
+
+      this.addInstruction(`(memory.copy
+        ${kvpLocation}
+        ${keyLocation}
+        (i32.const ${VAR_SIZE})
+      )`);
+
+      this.putOnStack(
+        DynamicTypes.POINTER,
+        `(i32.add
+          (i32.const ${VAR_SIZE})
+          ${kvpLocation}
+        )`
+      );
+    }
   }
 }

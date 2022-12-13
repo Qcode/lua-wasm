@@ -1,11 +1,293 @@
 import Function from "./ast/Function";
 import CodeVisitor, { DynamicTypes } from "./CodeVisitor.js";
+import { HASH_KVP_SIZE, VAR_SIZE } from "./constants.js";
 
 export default class CodeGeneration {
   stringLocationMap: Map<string, number>;
 
   constructor() {
     this.stringLocationMap = new Map();
+  }
+
+  hashKey() {
+    return `(func $hashKey (param $keyptr i32) (param $modulus i32) (result i32)
+      (local $stringLocation i32) (local $stringCharacters i32) (local $stringResult i32) (local $loopParam i32)
+      (local $curChar i32)
+      (i32.ne (i32.load (local.get $keyptr)) (i32.const ${DynamicTypes.STRING}))
+      (if (then (return
+        (i32.rem_s
+          (i32.load
+            (i32.add
+              (i32.const 4)
+              (local.get $keyptr)
+            )
+          )
+          (local.get $modulus)
+        )
+      )))
+      ;; Hashing string requires more complex approach
+
+      (local.set $stringLocation (i32.load (i32.add (i32.const 4) (local.get $keyptr))))
+
+      (local.set
+        $stringCharacters
+        (i32.load (local.get $stringLocation))
+      )
+      (local.set $loopParam (i32.const 0))
+      (local.set $stringResult (i32.const 0))
+      (loop
+        (local.set $curChar
+          (i32.load8_u
+            (i32.add
+              (local.get $stringLocation)
+              (i32.add (local.get $loopParam) (i32.const 4))
+            )
+          )
+        )
+
+        (local.set $stringResult
+          (i32.rem_s
+            (i32.add
+              (local.get $stringResult)
+              (i32.mul
+                (local.get $curChar)
+                (i32.const 257)
+              )
+            )
+            (local.get $modulus)
+          )
+        )
+
+        (local.set $loopParam
+          (i32.add
+            (local.get $loopParam)
+            (i32.const 1)
+          )
+        )
+        (br_if
+          0
+          (i32.lt_s
+            (local.get $loopParam)
+            (local.get $stringCharacters)
+          )
+        )
+      )
+      (local.get $stringResult)
+    )`;
+  }
+
+  // Most inserts come from an assignment - which involves fetching a ptr, then setting it
+  // On the other hand, gets should do the exact same code, but no need for resize checks
+
+  hashSearchArray() {
+    return `
+    (func $hashSearchArray (param $hashArrayBase i32) (param $hashSize i32) (param $keyPtr i32) (result i32)
+    (local $hashIndex i32) (local $kvpPtr i32)
+
+    (local.set $hashIndex (call $hashKey (local.get $keyPtr) (local.get $hashSize)))
+
+    ;; Do linear probing
+
+    (loop
+      (local.set $kvpPtr
+        (i32.add
+          (local.get $hashArrayBase)
+          (i32.mul (local.get $hashIndex) (i32.const ${HASH_KVP_SIZE}))
+        )
+      )
+      ;; If the key is nil, can place there
+      (if
+        (i32.eq
+          (i32.load (local.get $kvpPtr))
+          (i32.const ${DynamicTypes.NIL})
+        )
+        (then
+          (return (local.get $kvpPtr))
+        )
+      )
+      ;; If the key matches, we've found it
+      (if
+        (call $equals
+          (local.get $kvpPtr)
+          (local.get $keyPtr)
+        )
+        (then (return (local.get $kvpPtr)))
+      )
+      ;; Otherwise, increment
+      (local.set $hashIndex
+        (i32.rem_s
+          (i32.add
+            (local.get $hashIndex)
+            (i32.const 1)
+          )
+          (local.get $hashSize)
+        )
+      )
+      br 0
+    )
+
+    unreachable)`;
+  }
+
+  hashSearch() {
+    // Returns a mem location in the hash table to put the key value pair
+    return `(func $hashSearch (param $tablePtr i32) (param $keyPtr i32) (result i32)
+    (local $hashArrayBase i32) (local $hashSize i32)
+
+    (local.set $hashArrayBase
+      (i32.load
+        (i32.add
+          (i32.const 8)
+          (i32.load
+            (i32.add (i32.const 4) (local.get $tablePtr))
+          )
+        )
+      )
+    )
+
+    (local.set $hashSize
+      (i32.load
+        (i32.add
+          (i32.const 4)
+          (i32.load
+            (i32.add
+              (i32.const 4)
+              (local.get $tablePtr)
+            )
+          )
+        )
+      )
+    )
+
+    (call $hashSearchArray (local.get $hashArrayBase) (local.get $hashSize) (local.get $keyPtr))
+    )`;
+  }
+
+  maybeRehash() {
+    return `(func $maybeRehash (param $tablePtr i32)
+      (local $numElementsPtr i32)
+      (local $capacityPtr i32)
+
+      (local.set $numElementsPtr (i32.load (i32.add (local.get $tablePtr) (i32.const 4))))
+      (local.set $capacityPtr (i32.add (i32.const 4) (local.get $numElementsPtr)))
+
+      (if
+        (i32.gt_s
+          (i32.load (local.get $numElementsPtr))
+          (i32.div_s (i32.load (local.get $capacityPtr)) (i32.const 2))
+        )
+        (then
+          (call $rehash (local.get $tablePtr))
+        )
+      )
+    )`;
+  }
+
+  hashInsert() {
+    return `(func $hashInsert (param $tablePtr i32) (param $keyPtr i32) (param $valuePtr i32)
+      (local $kvpPtr i32)
+      (local $numElementsPtr i32)
+      (local $capacityPtr i32)
+
+      (local.set $numElementsPtr (i32.load (i32.add (local.get $tablePtr) (i32.const 4))))
+      (local.set $capacityPtr (i32.add (i32.const 4) (local.get $numElementsPtr)))
+
+      (i32.store (local.get $capacityPtr) (i32.add (i32.load (local.get $capacityPtr)) (i32.const 1)))
+
+
+      (call $maybeRehash (local.get $tablePtr))
+
+      (local.set $kvpPtr
+        (call $hashSearch
+          (local.get $tablePtr)
+          (local.get $keyPtr)
+        )
+      )
+
+      (memory.copy
+        (local.get $kvpPtr)
+        (local.get $keyPtr)
+        (i32.const ${VAR_SIZE})
+      )
+
+      (memory.copy
+        (i32.add (i32.const ${VAR_SIZE}) (local.get $kvpPtr))
+        (local.get $valuePtr)
+        (i32.const ${VAR_SIZE})
+      )
+    )`;
+  }
+
+  rehash() {
+    return `(func $rehash (param $tablePtr i32)
+      (local $currentHashCapacity i32) (local $newHashArrayBytes i32) (local $loopParam i32)
+      (local $elementsInserted i32)
+      (local $hashTableBase i32)
+      (local $oldHashArrayPtr i32)
+      (local $kvpPtr i32)
+      (local $newHashCapacity i32) (local $newHashArrayPtr i32)
+
+      (local.set $hashTableBase
+        (i32.load (i32.add (i32.const 4) (local.get $tablePtr)))
+      )
+      (local.set $currentHashCapacity
+        (i32.load
+          (i32.add
+            (i32.const 4)
+            (local.get $hashTableBase)
+          )
+        )
+      )
+
+      (local.set $newHashCapacity
+        (call $nearestPrime
+          (i32.mul
+            (i32.const 2)
+            (local.get $currentHashCapacity)
+          )
+        )
+      )
+
+      (local.set $newHashArrayBytes (i32.mul (local.get $newHashCapacity) (i32.const ${HASH_KVP_SIZE})))
+
+      (call $alloc (local.get $newHashArrayBytes))
+      (local.set $newHashArrayPtr (i32.sub (global.get $HP) (local.get $newHashArrayBytes)))
+      (local.set $oldHashArrayPtr (i32.load (i32.add (local.get $hashTableBase) (i32.const 8))))
+
+      (local.set $elementsInserted (i32.const 0))
+      (local.set $loopParam (i32.const 0))
+      (loop
+        (local.set $kvpPtr (i32.add (local.get $oldHashArrayPtr) (i32.mul (i32.const ${HASH_KVP_SIZE}) (local.get $loopParam))))
+        (if
+          ;; If the key isn't nil, and the value isn't nil, insert it
+          (i32.and
+            (i32.ne
+              (i32.load (local.get $kvpPtr))
+              (i32.const ${DynamicTypes.NIL})
+            )
+            (i32.ne
+              (i32.load (i32.add (i32.const ${VAR_SIZE}) (local.get $kvpPtr)))
+              (i32.const ${DynamicTypes.NIL})
+            )
+          )
+          (then
+            (memory.copy
+              (call $hashSearchArray (local.get $newHashArrayPtr) (local.get $newHashCapacity) (local.get $kvpPtr))
+              (local.get $kvpPtr)
+              (i32.const ${HASH_KVP_SIZE})
+            )
+            (local.set $elementsInserted (i32.add (local.get $elementsInserted) (i32.const 1)))
+          )
+        )
+
+        (local.set $loopParam (i32.add (local.get $loopParam) (i32.const 1)))
+        (br_if 0 (i32.lt_s (local.get $loopParam) (local.get $currentHashCapacity)))
+      )
+
+      (i32.store (local.get $hashTableBase) (local.get $elementsInserted))
+      (i32.store (i32.add (i32.const 4) (local.get $hashTableBase)) (local.get $newHashCapacity))
+      (i32.store (i32.add (i32.const 8) (local.get $hashTableBase)) (local.get $newHashArrayPtr))
+    )`;
   }
 
   nearestPrime() {
@@ -108,6 +390,17 @@ export default class CodeGeneration {
     )`;
   }
 
+  alloc() {
+    return `(func $alloc (param $bytes i32)
+      (global.set $HP
+        (i32.add
+          (global.get $HP)
+          (local.get $bytes)
+        )
+      )
+    )`;
+  }
+
   generateCode(ast: Function, functions: Function[], strings: string[]) {
     const { stringData, offset } = this.layoutStrings(strings);
     const prologue = `(module
@@ -121,6 +414,13 @@ export default class CodeGeneration {
     (global $temp (mut i32) (i32.const 0))
     ${this.equals()}
     ${this.nearestPrime()}
+    ${this.hashInsert()}
+    ${this.hashSearchArray()}
+    ${this.hashSearch()}
+    ${this.hashKey()}
+    ${this.rehash()}
+    ${this.maybeRehash()}
+    ${this.alloc()}
     (table ${functions.length} funcref)
     (elem (i32.const 0) ${functions.reduce(
       (acc, fn) => acc + `$f${fn.index} `,
