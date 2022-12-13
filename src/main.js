@@ -10,9 +10,25 @@ import StringVistor from "./StringVisitor.js";
 import IndexVisitor from "./IndexVisitor.js";
 
 // Read a file, generate a parse tree through ANTLR
-const input = fs
+let input = fs
   .readFileSync(process.argv[2] ?? "testPrograms/simpleTable.lua")
   .toString();
+
+input =
+  `
+local function ipairs(a)
+  local function iter(a, i)
+    i = i + 1
+    local v = a[i]
+    if v then
+      return i, v
+    end
+  end
+  return iter, a, 0
+end
+
+` + input;
+
 const chars = new antlr4.InputStream(input);
 const lexer = new LuaLexer(chars);
 const tokens = new antlr4.CommonTokenStream(lexer);

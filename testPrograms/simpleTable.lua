@@ -46,8 +46,9 @@ for i = size, 1, -1 do
     largeTable[i] = size - i
 end
 
-for i = 1, size do
-    print(largeTable[i])
+for i, v in ipairs(largeTable) do
+    print(i)
+    print(v)
 end
 
 local table4 = {f(), 5}
