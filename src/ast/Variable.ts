@@ -11,6 +11,7 @@ class Variable extends Expression {
   declaredInFunction: Function;
 
   global: boolean = false;
+  globalFieldAccess?: FieldAccess;
   // Describes whether it's used in an expression (get)
   // or an assignment (set)
   // For expression, push the value (8 bytes) onto the stack
@@ -25,6 +26,9 @@ class Variable extends Expression {
 
   accept(v: AstVisitor) {
     v.visitVariable(this);
+    if (this.global) {
+      this.globalFieldAccess.accept(v);
+    }
   }
 }
 

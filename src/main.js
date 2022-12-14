@@ -11,11 +11,13 @@ import IndexVisitor from "./IndexVisitor.js";
 
 // Read a file, generate a parse tree through ANTLR
 let input = fs
-  .readFileSync(process.argv[2] ?? "testPrograms/simpleTable.lua")
+  .readFileSync(process.argv[2] ?? "testPrograms/global.lua")
   .toString();
 
 input =
   `
+  local _G = {}
+  _G._G = _G
 local function ipairs(a)
   local function iter(a, i)
     i = i + 1

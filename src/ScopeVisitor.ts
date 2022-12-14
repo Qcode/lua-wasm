@@ -5,6 +5,8 @@ import Function from "./ast/Function.js";
 import LocalAssignment from "./ast/LocalAssignment.js";
 import Variable from "./ast/Variable.js";
 import AstVisitor from "./AstVisitor.js";
+import StringNode from "./Ast/StringNode.js";
+import FieldAccess from "./ast/FieldAccess.js";
 
 // Collect information about variables
 // Each function needs to know it's local variables
@@ -70,5 +72,13 @@ export default class ScopeVisitor extends AstVisitor {
     v.global = true;
     v.surroundingBlock = null;
     v.declaredInFunction = null;
+
+    const _G = new Variable("_G");
+    _G.usedInFunction = this.functionStack[this.functionStack.length - 1];
+    _G.surroundingBlock = this.blockStack[0];
+    _G.declaredInFunction = this.functionStack[0];
+
+    v.globalFieldAccess = new FieldAccess(_G, new StringNode(v.varName));
+    v.globalFieldAccess.get = v.get;
   }
 }

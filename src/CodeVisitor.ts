@@ -587,9 +587,8 @@ export default class CodeVisitor extends AstVisitor {
 
       // Update SP
       this.pushSP();
-    } else {
-      // console.error("Global", v.varName);
     }
+    // If v is a global, it's handled by the field access transformation in scope visitor
   }
 
   visitWhileStatement(v: WhileStatement): void {
