@@ -46,18 +46,11 @@ export default class CodeVisitor extends AstVisitor {
 
   stringLocationMap: Map<string, number>;
 
-  functionParamDataOffset: number;
-
-  constructor(
-    functions: Function[],
-    stringLocationMap: Map<string, number>,
-    functionParamDataOffset: number
-  ) {
+  constructor(functions: Function[], stringLocationMap: Map<string, number>) {
     super();
     this.functions = functions;
     this.functionWasms = new Array(this.functions.length).fill("");
     this.stringLocationMap = stringLocationMap;
-    this.functionParamDataOffset = functionParamDataOffset;
   }
 
   visitNumberNode(n: NumberNode): void {
@@ -204,20 +197,6 @@ export default class CodeVisitor extends AstVisitor {
           `(i32.store (i32.const ${stringLocation}) (i32.const ${string.length}))`
         );
       }
-
-      // Also initialize in here the data segment, the number of parameters to each function
-      // Will need to be looked up to determine for closures, how much space to allocate at runtime
-      this.functions.forEach((func) => {
-        this.addInstruction(
-          `(i32.store (global.get $HP) (i32.const ${func.totalVars}))`
-        );
-        this.addInstruction(
-          `(global.set $FP (i32.add (global.get $FP) (i32.const 4)))`
-        );
-        this.addInstruction(
-          `(global.set $HP (i32.add (global.get $HP) (i32.const 4)))`
-        );
-      });
 
       // Static Link
       this.addInstruction(`(i32.store (global.get $FP) (i32.const -1))`);
