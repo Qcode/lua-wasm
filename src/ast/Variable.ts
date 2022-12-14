@@ -2,6 +2,7 @@ import AstVisitor from "../AstVisitor.js";
 import Block from "./Block.js";
 import Function from "./Function.js";
 import Expression from "./Expression.js";
+import FieldAccess from "./FieldAccess.js";
 
 class Variable extends Expression {
   // Lua supports mutliple assignment at once, so this is built in by default

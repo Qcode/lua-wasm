@@ -35,6 +35,7 @@ import {
   HASH_PROLOGUE_SIZE,
   HASH_KVP_SIZE,
 } from "./constants.js";
+
 import FieldAccess from "./ast/FieldAccess.js";
 
 export default class CodeVisitor extends AstVisitor {
@@ -204,12 +205,15 @@ export default class CodeVisitor extends AstVisitor {
       this.addInstruction(
         `(i32.store (i32.add (i32.const 4) (global.get $FP)) (i32.const -1))`
       );
-
+      // Number of parameters
+      this.addInstruction(
+        `(i32.store (i32.add (i32.const 8) (global.get $FP)) (i32.const ${v.totalVars}))`
+      );
       // All the rest of memory is initialized to 0s by default, so just adjust the heap pointer
       // so it's not writing over the frame pointer
       this.addInstruction(
         `(global.set $HP (i32.add (global.get $HP) (i32.const ${
-          8 + 8 * v.totalVars
+          FRAME_PROLOGUE_SIZE + VAR_SIZE * v.totalVars
         })))`
       );
     } else {
@@ -249,6 +253,11 @@ export default class CodeVisitor extends AstVisitor {
       this.addInstruction(`(i32.store
         (i32.add (i32.const 4) ${frameBase})
         (global.get $FP)
+      )`);
+
+      this.addInstruction(`(i32.store
+        (i32.add (i32.const 8) ${frameBase})
+        (i32.const ${v.totalVars})
       )`);
 
       // Set frame pointer
@@ -400,9 +409,8 @@ export default class CodeVisitor extends AstVisitor {
     // The stack has 3 on the top, 2 below, 1 at the bottom
     for (let x = 0; x < a.names.length; ++x) {
       const offset = a.myFunction.getLocal(a.myBlock, a.names[x]);
-
       const storeLocation = `(i32.add (global.get $FP) (i32.const ${
-        VAR_SIZE * offset + 8
+        VAR_SIZE * offset + FRAME_PROLOGUE_SIZE
       }))`;
 
       const stackLocation = `(i32.add
@@ -778,7 +786,7 @@ export default class CodeVisitor extends AstVisitor {
     this.addInstruction("i32.store");
 
     this.addInstruction(
-      `(global.set $SP (i32.add (global.get $SP) (i32.const 8)))`
+      `(global.set $SP (i32.add (global.get $SP) (i32.const ${VAR_SIZE})))`
     );
   }
 
@@ -836,7 +844,7 @@ export default class CodeVisitor extends AstVisitor {
 
   pushSP() {
     this.addInstruction(
-      `(global.set $SP (i32.sub (global.get $SP) (i32.const 8)))`
+      `(global.set $SP (i32.sub (global.get $SP) (i32.const ${VAR_SIZE})))`
     );
   }
 

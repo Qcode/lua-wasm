@@ -427,11 +427,7 @@ export default class CodeGeneration {
       ""
     )})`;
 
-    const codeVisitor = new CodeVisitor(
-      functions,
-      this.stringLocationMap,
-      offset
-    );
+    const codeVisitor = new CodeVisitor(functions, this.stringLocationMap);
     ast.accept(codeVisitor);
 
     const funcs = codeVisitor.functionWasms.reduce(

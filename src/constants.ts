@@ -2,7 +2,8 @@
 export const VAR_SIZE = 8;
 // 4 bytes for dynamic link,
 // 4 bytes for static link
-export const FRAME_PROLOGUE_SIZE = 8;
+// 4 bytes for total vars
+export const FRAME_PROLOGUE_SIZE = 12;
 // 8 bytes for key, 8 bytes for value
 export const HASH_KVP_SIZE = 16;
 // 4 bytes for load
