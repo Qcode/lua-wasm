@@ -192,7 +192,7 @@ export default class CodeGeneration {
       (local.set $numElementsPtr (i32.load (i32.add (local.get $tablePtr) (i32.const 4))))
       (local.set $capacityPtr (i32.add (i32.const 4) (local.get $numElementsPtr)))
 
-      (i32.store (local.get $capacityPtr) (i32.add (i32.load (local.get $capacityPtr)) (i32.const 1)))
+      (i32.store (local.get $numElementsPtr) (i32.add (i32.load (local.get $numElementsPtr)) (i32.const 1)))
 
 
       (call $maybeRehash (local.get $tablePtr))

@@ -5,13 +5,19 @@ import LuaParser from "./antlr/LuaParser.js";
 import AntlrVisitor from "./AntlrVisitor.js";
 import CodeGeneration from "./CodeGeneration.js";
 import Function from "./ast/Function.js";
+import Block from "./ast/Block.js";
+import Assignment from "./ast/Assignment.js";
+import Variable from "./ast/Variable.js";
+import ExpressionList from "./ast/ExpressionList.js";
 import ScopeVisitor from "./ScopeVisitor.js";
 import StringVistor from "./StringVisitor.js";
 import IndexVisitor from "./IndexVisitor.js";
 
+import { FRAME_PROLOGUE_SIZE } from "./constants.js";
+
 // Read a file, generate a parse tree through ANTLR
 let input = fs
-  .readFileSync(process.argv[2] ?? "testPrograms/global.lua")
+  .readFileSync(process.argv[2] ?? "testPrograms/simplePrint.lua")
   .toString();
 
 input =
@@ -28,7 +34,6 @@ local function ipairs(a)
   end
   return iter, a, 0
 end
-
 ` + input;
 
 const chars = new antlr4.InputStream(input);
@@ -40,6 +45,19 @@ const tree = parser.chunk();
 
 // Construct my ast from the parse tree
 const ast = new Function([], tree.accept(new AntlrVisitor()));
+
+// Print allows one field at a time
+const printFunction = new Function(["x"], new Block([]));
+
+printFunction.customBody = `
+  (call $print (i32.add (global.get $FP) (i32.const ${FRAME_PROLOGUE_SIZE})))
+`;
+
+ast.body.statements.splice(
+  1,
+  0,
+  new Assignment([new Variable("print")], new ExpressionList([printFunction]))
+);
 
 // Annotate blocks with local variables
 // Determine if variable uses are global or local, etc

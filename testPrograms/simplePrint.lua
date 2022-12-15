@@ -1,3 +1,5 @@
+print(5)
+
 local x, y, z = 1, 2, 3
 print(x)
 print(y)

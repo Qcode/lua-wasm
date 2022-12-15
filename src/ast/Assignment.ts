@@ -9,7 +9,7 @@ class Assignment extends AstNode {
   lvalues: (Variable | FieldAccess)[];
   values: ExpressionList;
 
-  constructor(lvalues: Variable[], values: ExpressionList) {
+  constructor(lvalues: (Variable | FieldAccess)[], values: ExpressionList) {
     super();
     this.lvalues = lvalues;
     this.lvalues.forEach((variable) => (variable.get = false));

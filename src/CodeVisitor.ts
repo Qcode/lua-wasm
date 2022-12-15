@@ -75,17 +75,6 @@ export default class CodeVisitor extends AstVisitor {
   }
 
   leaveFuncCall(f: FuncCall): void {
-    // Hardcode printing for now, should be stored in global table somewhere probably
-    // So that they can reassign, etc.
-    //console.error(f);
-    if (f.theFunc instanceof Variable && f.theFunc.varName === "print") {
-      this.addInstruction(
-        `(call $print (i32.add (i32.const ${VAR_SIZE}) (global.get $SP)))`
-      );
-      this.popFromStack(2);
-      return;
-    }
-
     // At this point, we have the closure, then a bunch of expressions for parameters
     // Have to allocate space for the frame, jump there, finish, etc.
     // Pop stuff off the stack too
@@ -375,6 +364,10 @@ export default class CodeVisitor extends AstVisitor {
           )
         )
       )`);
+
+      if (v.customBody) {
+        this.addInstruction(v.customBody);
+      }
     }
   }
 

@@ -5,6 +5,7 @@ import Block from "./Block.js";
 export default class Function extends Expression {
   parameters: string[];
   body: Block;
+  customBody?: string;
 
   nestingDepth: number = 0;
 
