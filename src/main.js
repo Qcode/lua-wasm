@@ -13,6 +13,8 @@ import ScopeVisitor from "./ScopeVisitor.js";
 import StringVistor from "./StringVisitor.js";
 import IndexVisitor from "./IndexVisitor.js";
 
+import { FRAME_PROLOGUE_SIZE } from "./constants.js";
+
 // Read a file, generate a parse tree through ANTLR
 let input = fs
   .readFileSync(process.argv[2] ?? "testPrograms/simplePrint.lua")

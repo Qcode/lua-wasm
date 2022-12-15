@@ -268,7 +268,6 @@ const wasmImports = {
     },
     gc: (bytes) => {
       if (HP.value + bytes > heapStart + halfHeap) {
-        //console.log("Swapping");
         pointerIntervals.splice(2, pointerIntervals.length - 2);
         swapHalves();
       }

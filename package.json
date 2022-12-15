@@ -5,10 +5,11 @@
   },
   "type": "module",
   "scripts": {
-    "start": "node src/main.js",
+    "build": "tsc",
     "antlr": "antlr src/antlr/Lua.g4  -Dlanguage=JavaScript"
   },
   "devDependencies": {
-    "@types/antlr4": "^4.11.1"
+    "@types/antlr4": "^4.11.1",
+    "typescript": "^4.9.4"
   }
 }

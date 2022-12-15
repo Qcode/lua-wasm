@@ -351,8 +351,6 @@ export default class AntlrVisitor {
 
     if (ctx instanceof LuaParser.FunccallContext) {
       const functionCallNode = ctx.functioncall();
-      // TODO: Something like f returns another function, f()() - multiple args, need to nest FuncCall Objects
-      // nameAndArgs => args => explist
       let toReturn = new FuncCall(
         functionCallNode.varOrExp().accept(this),
         functionCallNode.getChild(1).accept(this)
