@@ -1,4 +1,4 @@
-import AstVisitor from "../AstVisitor";
+import AstVisitor from "../AstVisitor.js";
 import Expression from "./Expression.js";
 
 export default class BooleanNode extends Expression {

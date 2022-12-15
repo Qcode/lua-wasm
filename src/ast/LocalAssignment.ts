@@ -1,8 +1,8 @@
-import AstVisitor from "../AstVisitor";
+import AstVisitor from "../AstVisitor.js";
 import AstNode from "./AstNode.js";
-import Block from "./Block";
-import Function from "./Function";
-import ExpressionList from "./ExpressionList";
+import Block from "./Block.js";
+import Function from "./Function.js";
+import ExpressionList from "./ExpressionList.js";
 
 export default class LocalAssignment extends AstNode {
   names: string[];

@@ -1,7 +1,7 @@
-import AstVisitor from "../AstVisitor";
+import AstVisitor from "../AstVisitor.js";
 import AstNode from "./AstNode.js";
-import Block from "./Block";
-import Expression from "./Expression";
+import Block from "./Block.js";
+import Expression from "./Expression.js";
 
 export default class WhileStatement extends AstNode {
   condition: Expression;

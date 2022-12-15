@@ -1,4 +1,4 @@
-import Function from "./ast/Function";
+import Function from "./ast/Function.js";
 import CodeVisitor, { DynamicTypes } from "./CodeVisitor.js";
 import { HASH_KVP_SIZE, VAR_SIZE } from "./constants.js";
 

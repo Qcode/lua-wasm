@@ -1,7 +1,7 @@
-import AstVisitor from "../AstVisitor";
+import AstVisitor from "../AstVisitor.js";
 import AstNode from "./AstNode.js";
-import Expression from "./Expression";
-import Block from "./Block";
+import Expression from "./Expression.js";
+import Block from "./Block.js";
 
 export default class IfStatement extends AstNode {
   condition: Expression;

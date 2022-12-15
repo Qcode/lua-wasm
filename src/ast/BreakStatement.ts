@@ -1,5 +1,5 @@
 import AstNode from "./AstNode.js";
-import AstVisitor from "../AstVisitor";
+import AstVisitor from "../AstVisitor.js";
 import WhileStatement from "./WhileStatement.js";
 
 export default class BreakStatement extends AstNode {

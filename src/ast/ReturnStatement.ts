@@ -1,5 +1,5 @@
 import AstNode from "./AstNode.js";
-import AstVisitor from "../AstVisitor";
+import AstVisitor from "../AstVisitor.js";
 import ExpressionList from "./ExpressionList.js";
 
 export default class ReturnStatement extends AstNode {

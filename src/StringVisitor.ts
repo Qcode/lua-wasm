@@ -1,5 +1,5 @@
-import StringNode from "./ast/StringNode";
-import Variable from "./ast/Variable";
+import StringNode from "./ast/StringNode.js";
+import Variable from "./ast/Variable.js";
 import AstVisitor from "./AstVisitor.js";
 
 export default class StringVistor extends AstVisitor {

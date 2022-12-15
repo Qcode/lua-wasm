@@ -1,6 +1,6 @@
 import AstVisitor from "../AstVisitor";
 import AstNode from "./AstNode.js";
-import Expression from "./Expression";
+import Expression from "./Expression.js";
 import FuncCall from "./FuncCall.js";
 import { CopyReturnValues } from "./FuncCall.js";
 
