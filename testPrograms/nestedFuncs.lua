@@ -1,3 +1,5 @@
+-- An example testing nested functions
+
 local function f()
     print("Entering f")
     local function g()

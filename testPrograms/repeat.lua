@@ -1,4 +1,6 @@
-local a = 10
+-- Repeat loops exist, translated to whiles at the AST level
+
+local a = 1
 
 repeat
     print("value of a")

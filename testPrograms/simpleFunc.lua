@@ -1,6 +1,9 @@
+-- Testing variable shadowing
+
 local a = 100
 
 local function f()
+    -- a on the RHS is the outer a, a on the LHS is being declared
     local a = a
     print("I am f")
     print("My a is")

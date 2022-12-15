@@ -1,3 +1,5 @@
+-- Sum numbers with a while loop
+
 local n = 10
 local sum = 0
 local x = 1

@@ -1,3 +1,5 @@
+-- Any types can be compared in lua, so we ant to make sure all the comparisons work correctly
+
 print(true == true)
 print(true == false)
 print(false == true)

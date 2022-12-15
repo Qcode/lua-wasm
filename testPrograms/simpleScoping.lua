@@ -1,3 +1,5 @@
+-- do blocks allow us to separate scopes
+
 local a = 1
 
 do

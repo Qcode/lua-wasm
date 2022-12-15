@@ -1,3 +1,7 @@
+-- String concatenation is supported in my implementation
+-- Allocation happens on the heap, we want to make sure that
+-- even if one is stored in the data segment (like result), we still have
+-- a .. second == result (despite them stored in different locations)
 local a = "a"
 local second = "b"
 

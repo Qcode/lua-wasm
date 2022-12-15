@@ -1,3 +1,5 @@
+-- Another variable shadowing test
+
 local z = 1
 local x = 2
 

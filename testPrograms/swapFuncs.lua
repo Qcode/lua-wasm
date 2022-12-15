@@ -1,3 +1,5 @@
+-- We can swap function closures easily
+
 local function f()
     print("I am f")
 end

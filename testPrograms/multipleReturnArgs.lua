@@ -1,3 +1,6 @@
+-- Examples of forwarding arguments from one function to another
+-- Should be replaced with nils if not enough, or discarded if too many are passed
+
 local function f0()
 end
 

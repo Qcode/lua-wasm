@@ -1,3 +1,5 @@
+-- Fun example, using closures
+
 local recursiveSum = function(n)
 	local recursiveSumHelper
 	recursiveSumHelper = function(acc)
@@ -5,11 +7,11 @@ local recursiveSum = function(n)
 			return acc
 		end
         acc = acc + n
+		-- Modifying n is the outer scope
         n = n - 1
 		return recursiveSumHelper(acc)
 	end
 	return recursiveSumHelper(0)
 end
 
-local result = recursiveSum(10)
-print(result)
+print(recursiveSum(10))

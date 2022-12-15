@@ -1,3 +1,5 @@
+-- Simple tests of if statements
+
 local var1 = true
 local var2 = false
 

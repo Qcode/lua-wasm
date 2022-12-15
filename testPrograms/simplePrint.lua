@@ -1,3 +1,5 @@
+-- A basic sanity test
+
 print(5)
 
 local x, y, z = 1, 2, 3

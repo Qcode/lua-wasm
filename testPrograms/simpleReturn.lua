@@ -1,3 +1,5 @@
+-- Early return to leave a function
+
 local function guessTheNum(x)
     local theNum = 10
     if (x < theNum) then
