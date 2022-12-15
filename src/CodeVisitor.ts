@@ -80,10 +80,9 @@ export default class CodeVisitor extends AstVisitor {
     //console.error(f);
     if (f.theFunc instanceof Variable && f.theFunc.varName === "print") {
       this.addInstruction(
-        `(global.set $SP (i32.add (global.get $SP) (i32.const ${VAR_SIZE})))`
+        `(call $print (i32.add (i32.const ${VAR_SIZE}) (global.get $SP)))`
       );
-      this.addInstruction(`global.get $SP`);
-      this.addInstruction(`call $print`);
+      this.popFromStack(2);
       return;
     }
 

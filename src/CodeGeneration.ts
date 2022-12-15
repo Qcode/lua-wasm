@@ -392,6 +392,7 @@ export default class CodeGeneration {
 
   alloc() {
     return `(func $alloc (param $bytes i32)
+      (call $gc (local.get $bytes))
       (global.set $HP
         (i32.add
           (global.get $HP)
@@ -405,12 +406,13 @@ export default class CodeGeneration {
     const { stringData, offset } = this.layoutStrings(strings);
     const prologue = `(module
     (func $print (import "imports" "print") (param i32))
+    (func $gc (import "imports" "gc") (param i32))
     (import "js" "mem" (memory 1))
     (type $basicFunc (func))
     ${stringData}
-    (global $HP (mut i32) (i32.const ${offset}))
-    (global $FP (mut i32) (i32.const ${offset}))
-    (global $SP (mut i32) (i32.const 65528))
+    (global $HP (export "HP") (mut i32) (i32.const ${offset}))
+    (global $FP (export "FP") (mut i32) (i32.const ${offset}))
+    (global $SP (export "SP") (mut i32) (i32.const 65528))
     (global $temp (mut i32) (i32.const 0))
     ${this.equals()}
     ${this.nearestPrime()}
